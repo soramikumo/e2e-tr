@@ -1,0 +1,18 @@
+services:
+  runner:
+    build: ./runner
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./tests:/tests
+    environment:
+      - TESTS_DIR=/tests
+
+  portal:
+    build: ./portal
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - runner
