@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 1. Go runner: ビルド & 静的解析 ───────────────────────────────
+  build-runner:
+    name: Runner (Go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runner/go.mod
+
+      - name: Build
+        run: go build ./...
+        working-directory: runner
+
+      - name: Vet
+        run: go vet ./...
+        working-directory: runner
+
+      - name: Test
+        run: go test ./...
+        working-directory: runner
+
+  # ── 2. Next.js portal: ビルドチェック ─────────────────────────────
+  build-portal:
+    name: Portal (Next.js)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: portal
+
+      - name: Build
+        run: npm run build
+        working-directory: portal
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+
+  # ── 3. E2E: docker-compose でスタック起動 → ポータル UI テスト ────
+  e2e:
+    name: E2E (Portal UI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [build-runner, build-portal]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+
+      - name: Install Playwright dependencies
+        run: npm ci
+        working-directory: tests
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: tests
+
+      - name: Start stack (docker compose)
+        run: docker compose up -d --build
+
+      - name: Wait for portal (port 3000)
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "Portal is up"
+              exit 0
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          echo "Portal did not start in time" && exit 1
+
+      - name: Wait for runner (port 8080)
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/api/tags > /dev/null 2>&1; then
+              echo "Runner is up"
+              exit 0
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          echo "Runner did not start in time" && exit 1
+
+      - name: Run portal E2E tests
+        run: npx playwright test --config=playwright.portal.config.ts
+        working-directory: tests
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-portal-report
+          path: tests/playwright-report/
+          retention-days: 14
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down
