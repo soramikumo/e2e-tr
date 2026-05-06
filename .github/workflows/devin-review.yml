@@ -1,0 +1,26 @@
+name: Devin Review
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  trigger:
+    name: Trigger Devin Review
+    runs-on: ubuntu-latest
+    # 'devin' ラベルが付いたときだけ実行
+    if: github.event.label.name == 'devin'
+    steps:
+      - name: Post Devin review request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: '@devin-ai-integration please review this PR'
+            })
