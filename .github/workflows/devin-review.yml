@@ -2,7 +2,7 @@ name: Devin Review
 
 on:
   pull_request:
-    types: [review_requested]
+    types: [labeled]
 
 permissions:
   pull-requests: write
@@ -11,10 +11,8 @@ jobs:
   trigger:
     name: Trigger Devin Review
     runs-on: ubuntu-latest
-    # Devin がレビュワーにリクエストされたときだけ実行
-    if: |
-      github.event.requested_reviewer.login == 'devin-ai-mfd' ||
-      github.event.requested_reviewer.login == 'devin-ai-integration[bot]'
+    # 'devin' ラベルが付いたときだけ実行
+    if: github.event.label.name == 'devin'
     steps:
       - name: Post Devin review request
         uses: actions/github-script@v7
