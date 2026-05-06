@@ -30,6 +30,7 @@ test: test-runner up
 		curl -sf http://localhost:3000 > /dev/null 2>&1 && \
 		curl -sf http://localhost:8080/api/tags > /dev/null 2>&1 && \
 		echo "Services ready" && break; \
+		if [ $$i -eq 30 ]; then echo "Services did not start in time" && exit 1; fi; \
 		echo "Waiting... ($$i/30)"; sleep 2; \
 	done
 	$(MAKE) test-portal
