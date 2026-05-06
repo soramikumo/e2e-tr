@@ -7,8 +7,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
+
+// testsDirMu はテスト間でグローバル変数 testsDir を安全に書き換えるためのロック。
+// 並列テストを追加する場合は各テストで取得すること。
+var testsDirMu sync.Mutex
+
+// withTestsDir は testsDir をテスト用ディレクトリに差し替え、終了後に復元する。
+func withTestsDir(t *testing.T, dir string) {
+	t.Helper()
+	testsDirMu.Lock()
+	orig := testsDir
+	testsDir = dir
+	t.Cleanup(func() {
+		testsDir = orig
+		testsDirMu.Unlock()
+	})
+}
 
 // ── sanitizeName ─────────────────────────────────────────────────────────────
 
@@ -68,9 +85,7 @@ func TestRandomID(t *testing.T) {
 
 func TestScanTags(t *testing.T) {
 	dir := t.TempDir()
-	origDir := testsDir
-	testsDir = dir
-	defer func() { testsDir = origDir }()
+	withTestsDir(t, dir)
 
 	testsSubDir := filepath.Join(dir, "tests")
 	if err := os.MkdirAll(testsSubDir, 0755); err != nil {
@@ -78,8 +93,8 @@ func TestScanTags(t *testing.T) {
 	}
 
 	// タグ付きスペックを2ファイル作成
-	writeSpec(t, testsSubDir, "a.spec.ts", `test('foo @smoke', ...);\ntest('bar @regression', ...);`)
-	writeSpec(t, testsSubDir, "b.spec.ts", `test('baz @smoke', ...);`) // @smoke は重複
+	writeSpec(t, testsSubDir, "a.spec.ts", "test('foo @smoke', ...);\ntest('bar @regression', ...);")
+	writeSpec(t, testsSubDir, "b.spec.ts", "test('baz @smoke', ...);") // @smoke は重複
 
 	tags := scanTags()
 
@@ -100,9 +115,7 @@ func TestScanTags(t *testing.T) {
 
 func TestScanTagsEmpty(t *testing.T) {
 	dir := t.TempDir()
-	origDir := testsDir
-	testsDir = dir
-	defer func() { testsDir = origDir }()
+	withTestsDir(t, dir)
 
 	os.MkdirAll(filepath.Join(dir, "tests"), 0755)
 
@@ -116,9 +129,7 @@ func TestScanTagsEmpty(t *testing.T) {
 
 func TestListScenarios(t *testing.T) {
 	dir := t.TempDir()
-	origDir := testsDir
-	testsDir = dir
-	defer func() { testsDir = origDir }()
+	withTestsDir(t, dir)
 
 	testsSubDir := filepath.Join(dir, "tests")
 	os.MkdirAll(testsSubDir, 0755)
@@ -143,9 +154,7 @@ func TestListScenarios(t *testing.T) {
 
 func TestHandleTags(t *testing.T) {
 	dir := t.TempDir()
-	origDir := testsDir
-	testsDir = dir
-	defer func() { testsDir = origDir }()
+	withTestsDir(t, dir)
 
 	os.MkdirAll(filepath.Join(dir, "tests"), 0755)
 	writeSpec(t, filepath.Join(dir, "tests"), "s.spec.ts", `test('@api smoke', () => {})`)
@@ -172,9 +181,7 @@ func TestHandleTags(t *testing.T) {
 
 func TestHandleScenarios_GET(t *testing.T) {
 	dir := t.TempDir()
-	origDir := testsDir
-	testsDir = dir
-	defer func() { testsDir = origDir }()
+	withTestsDir(t, dir)
 
 	os.MkdirAll(filepath.Join(dir, "tests"), 0755)
 	writeSpec(t, filepath.Join(dir, "tests"), "demo.spec.ts", `test('x', () => {})`)
@@ -201,9 +208,7 @@ func TestHandleScenarios_GET(t *testing.T) {
 
 func TestHandleScenarios_DELETE(t *testing.T) {
 	dir := t.TempDir()
-	origDir := testsDir
-	testsDir = dir
-	defer func() { testsDir = origDir }()
+	withTestsDir(t, dir)
 
 	os.MkdirAll(filepath.Join(dir, "tests"), 0755)
 	writeSpec(t, filepath.Join(dir, "tests"), "todelete.spec.ts", `test('x', () => {})`)
