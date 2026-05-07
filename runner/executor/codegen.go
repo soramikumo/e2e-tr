@@ -37,6 +37,6 @@ func ExecuteCodegen(c *domain.Codegen, testsDir string, cs store.CodegenStore) {
 		return
 	}
 
-	c.Finish(outputFile, nil)
+	c.Finish(filepath.Base(outputFile), nil)
 	cs.Save(c)
 }
