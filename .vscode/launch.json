@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug runner",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/runner",
+      "env": {
+        "TESTS_DIR": "${workspaceFolder}/tests"
+      }
+    }
+  ]
+}

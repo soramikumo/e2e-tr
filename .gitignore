@@ -4,3 +4,7 @@ tests/node_modules/
 tests/playwright-report/
 tests/test-results/
 .claude/
+runner/__debug_bin*
+tests/tests/cart.spec.ts
+tests/tests/search.spec.ts
+tests/tests/test.spec.ts
