@@ -4,7 +4,7 @@ COPY . .
 RUN go build -o runner .
 
 # Playwright official image includes browsers + Node.js
-FROM mcr.microsoft.com/playwright:v1.44.0-jammy
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 WORKDIR /app
 
 # Copy Go binary
