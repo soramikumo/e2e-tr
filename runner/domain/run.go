@@ -3,6 +3,7 @@ package domain
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"slices"
 	"sync"
 	"time"
 )
@@ -75,17 +76,19 @@ func (r *Run) Subscribe() (<-chan string, func()) {
 		return ch, func() {}
 	}
 	r.subs = append(r.subs, ch)
-	cancel := func() {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		for i, sub := range r.subs {
-			if sub == ch {
-				r.subs = append(r.subs[:i], r.subs[i+1:]...)
-				return
-			}
+	cancel := func() { r.unsubscribe(ch) }
+	return ch, cancel
+}
+
+func (r *Run) unsubscribe(ch chan string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, sub := range r.subs {
+		if sub == ch {
+			r.subs = slices.Delete(r.subs, i, i+1)
+			return
 		}
 	}
-	return ch, cancel
 }
 
 func (r *Run) Finish(success bool) {
