@@ -1,6 +1,9 @@
 package domain
 
-import "sync"
+import (
+	"slices"
+	"sync"
+)
 
 type CodegenEvent struct {
 	Type    string `json:"type"`
@@ -54,17 +57,19 @@ func (c *Codegen) Subscribe() (<-chan CodegenEvent, func()) {
 		return ch, func() {}
 	}
 	c.subs = append(c.subs, ch)
-	cancel := func() {
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		for i, sub := range c.subs {
-			if sub == ch {
-				c.subs = append(c.subs[:i], c.subs[i+1:]...)
-				return
-			}
+	cancel := func() { c.unsubscribe(ch) }
+	return ch, cancel
+}
+
+func (c *Codegen) unsubscribe(ch chan CodegenEvent) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i, sub := range c.subs {
+		if sub == ch {
+			c.subs = slices.Delete(c.subs, i, i+1)
+			return
 		}
 	}
-	return ch, cancel
 }
 
 func (c *Codegen) Finish(file string, err error) {
