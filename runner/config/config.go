@@ -6,6 +6,7 @@ type Config struct {
 	TestsDir string
 	Port     string
 	DBPath   string
+	UseNoVNC bool
 }
 
 func Load() *Config {
@@ -13,6 +14,8 @@ func Load() *Config {
 		TestsDir: env("TESTS_DIR", "../tests"),
 		Port:     env("PORT", ":8080"),
 		DBPath:   env("DB_PATH", "./runner.db"),
+		// USE_NOVNC 環境変数が "true" に設定されている場合にはLocalで起動しないといけない
+		UseNoVNC: os.Getenv("USE_NOVNC") == "true",
 	}
 }
 

@@ -12,11 +12,12 @@ type CodegenEvent struct {
 }
 
 type Codegen struct {
-	ID     string `json:"id"`
-	URL    string `json:"url"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	File   string `json:"file,omitempty"`
+	ID        string `json:"id"`
+	URL       string `json:"url"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	File      string `json:"file,omitempty"`
+	NoVNCPort int    `json:"noVNCPort,omitempty"`
 
 	mu   sync.Mutex
 	subs []chan CodegenEvent

@@ -26,11 +26,21 @@ func (h *Handler) CodegenStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c := domain.NewCodegen(body.URL, body.Name)
+
+	if h.cfg.UseNoVNC {
+		session, err := h.VNCManager.Start(c.ID)
+		if err != nil {
+			http.Error(w, "VNC起動失敗: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		c.NoVNCPort = session.NoVNCPort
+	}
+
 	h.CodegenStore.Save(c)
-	go executor.ExecuteCodegen(c, h.cfg.TestsDir, h.CodegenStore)
+	go executor.ExecuteCodegen(c, h.cfg.TestsDir, h.CodegenStore, h.VNCManager)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": c.ID, "name": c.Name})
+	json.NewEncoder(w).Encode(map[string]any{"id": c.ID, "name": c.Name, "noVNCPort": c.NoVNCPort})
 }
 
 func (h *Handler) CodegenStream(w http.ResponseWriter, r *http.Request) {

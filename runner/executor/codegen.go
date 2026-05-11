@@ -9,25 +9,29 @@ import (
 
 	"e2e-runner/domain"
 	"e2e-runner/store"
+	"e2e-runner/vnc"
 )
 
-func ExecuteCodegen(c *domain.Codegen, testsDir string, cs store.CodegenStore) {
+func ExecuteCodegen(c *domain.Codegen, testsDir string, cs store.CodegenStore, vncManager *vnc.Manager) {
 	name := domain.SanitizeName(c.Name)
 	outputFile := filepath.Join(testsDir, "tests", name+".spec.ts")
 
-	c.Send(domain.CodegenEvent{Type: "status", Message: "ブラウザを起動しています..."})
+	c.Send(domain.CodegenEvent{Type: "status", Message: "記録中... ブラウザを閉じると保存されます"})
 
 	var stderr bytes.Buffer
 	cmd := exec.Command("npx", "playwright", "codegen", "--output", outputFile, c.URL)
 	cmd.Dir = testsDir
 	cmd.Stderr = &stderr
 
+	if session, ok := vncManager.Get(c.ID); ok {
+		defer vncManager.Stop(c.ID)
+		cmd.Env = append(os.Environ(), "DISPLAY="+session.Display)
+	}
+
 	if err := cmd.Start(); err != nil {
 		c.Finish("", fmt.Errorf("起動失敗: %v", err))
 		return
 	}
-
-	c.Send(domain.CodegenEvent{Type: "status", Message: "記録中... ブラウザを閉じると保存されます"})
 
 	err := cmd.Wait()
 

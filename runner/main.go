@@ -8,6 +8,7 @@ import (
 	"e2e-runner/config"
 	"e2e-runner/handler"
 	"e2e-runner/store"
+	"e2e-runner/vnc"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 	// if err != nil { log.Fatalf("DB初期化失敗: %v", err) }
 	runStore := store.NewMemoryRunStore()
 
-	h := handler.New(cfg, runStore, store.NewMemoryCodegenStore())
+	h := handler.New(cfg, runStore, store.NewMemoryCodegenStore(), vnc.NewManager())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/tags", handler.CORS(h.Tags))
