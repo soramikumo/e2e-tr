@@ -50,11 +50,11 @@ func (s *SQLiteRunStore) Save(run *domain.Run) error {
 
 	logsJSON, _ := json.Marshal(run.Logs())
 
-	// TODO(human): INSERT OR REPLACE INTO runs (id, tag, file, status, logs, started_at)
-	// VALUES (?, ?, ?, ?, ?, ?) を使って run を SQLite に保存する。
-	// s.db.Exec(sql, args...) の形で書く。エラーがあれば return err する。
-	_ = logsJSON
-	return nil
+	_, err := s.db.Exec(
+		`INSERT OR REPLACE INTO runs (id, tag, file, status, logs, started_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		run.ID, run.Tag, run.File, string(run.GetStatus()), string(logsJSON), run.StartedAt,
+	)
+	return err
 }
 
 func (s *SQLiteRunStore) Get(id string) (*domain.Run, bool) {
