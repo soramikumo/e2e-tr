@@ -1,6 +1,7 @@
 services:
   runner:
     build: ./runner
+    init: true
     ports:
       - "8080:8080"
       - "6080-6089:6080-6089"

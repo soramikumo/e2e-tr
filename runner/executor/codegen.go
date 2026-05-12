@@ -23,9 +23,11 @@ func ExecuteCodegen(c *domain.Codegen, testsDir string, cs store.CodegenStore, v
 	cmd.Dir = testsDir
 	cmd.Stderr = &stderr
 
-	if session, ok := vncManager.Get(c.ID); ok {
-		defer vncManager.Stop(c.ID)
-		cmd.Env = append(os.Environ(), "DISPLAY="+session.Display)
+	if vncManager != nil {
+		if session, ok := vncManager.Get(c.ID); ok {
+			defer vncManager.Stop(c.ID)
+			cmd.Env = append(os.Environ(), "DISPLAY="+session.Display)
+		}
 	}
 
 	if err := cmd.Start(); err != nil {
