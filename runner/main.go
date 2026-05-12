@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"e2e-runner/config"
@@ -35,6 +36,10 @@ func main() {
 		http.Redirect(w, r, "/report/", http.StatusMovedPermanently)
 	})
 
+	var srv http.Handler = mux
+	if user, pass := os.Getenv("AUTH_USER"), os.Getenv("AUTH_PASS"); user != "" && pass != "" {
+		srv = handler.BasicAuth(user, pass, mux)
+	}
 	log.Printf("runner起動: http://localhost%s", cfg.Port)
-	log.Fatal(http.ListenAndServe(cfg.Port, mux))
+	log.Fatal(http.ListenAndServe(cfg.Port, srv))
 }
