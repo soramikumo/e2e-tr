@@ -6,16 +6,18 @@ import (
 
 	"e2e-runner/config"
 	"e2e-runner/store"
+	"e2e-runner/vnc"
 )
 
 type Handler struct {
 	cfg          *config.Config
 	RunStore     store.RunStore
 	CodegenStore store.CodegenStore
+	VNCManager   *vnc.Manager
 }
 
-func New(cfg *config.Config, rs store.RunStore, cs store.CodegenStore) *Handler {
-	return &Handler{cfg: cfg, RunStore: rs, CodegenStore: cs}
+func New(cfg *config.Config, rs store.RunStore, cs store.CodegenStore, vm *vnc.Manager) *Handler {
+	return &Handler{cfg: cfg, RunStore: rs, CodegenStore: cs, VNCManager: vm}
 }
 
 func sseStart(w http.ResponseWriter) (http.Flusher, bool) {

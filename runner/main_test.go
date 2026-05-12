@@ -18,7 +18,7 @@ import (
 func newTestHandler(t *testing.T, testsDir string) *handler.Handler {
 	t.Helper()
 	cfg := &config.Config{TestsDir: testsDir, Port: ":8080", DBPath: ""}
-	return handler.New(cfg, store.NewMemoryRunStore(), store.NewMemoryCodegenStore())
+	return handler.New(cfg, store.NewMemoryRunStore(), store.NewMemoryCodegenStore(), nil)
 }
 
 // ── domain.SanitizeName ───────────────────────────────────────────────────────

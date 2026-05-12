@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+const NOVNC_HOST = process.env.NEXT_PUBLIC_NOVNC_HOST ?? 'http://localhost';
 
 type State = 'idle' | 'recording' | 'done' | 'error';
 
@@ -13,6 +14,7 @@ export default function CreatePage() {
   const [state, setState] = useState<State>('idle');
   const [message, setMessage] = useState('');
   const [savedFile, setSavedFile] = useState('');
+  const [noVNCPort, setNoVNCPort] = useState<number | null>(null);
   const router = useRouter();
 
   const startRecording = async () => {
@@ -21,6 +23,7 @@ export default function CreatePage() {
     setState('recording');
     setMessage('ブラウザを起動しています...');
     setSavedFile('');
+    setNoVNCPort(null);
 
     let id: string;
     try {
@@ -31,6 +34,7 @@ export default function CreatePage() {
       });
       const data = await res.json();
       id = data.id;
+      setNoVNCPort(data.noVNCPort);
     } catch (e) {
       setState('error');
       setMessage(`起動失敗: ${e}`);
@@ -114,6 +118,14 @@ export default function CreatePage() {
                 ブラウザで操作を行ってください。完了したらブラウザを閉じると自動的に保存されます。
               </p>
             )}
+            {isRecording && noVNCPort && (
+              <iframe
+                src={`${NOVNC_HOST}:${noVNCPort}/vnc.html?autoconnect=true&resize=scale`}
+                width={1280}
+                height={800}
+              />
+            )}
+
             {state === 'done' && savedFile && (
               <p className="status-hint">保存先: tests/tests/{savedFile}</p>
             )}
