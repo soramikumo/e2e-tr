@@ -23,6 +23,7 @@ export default function CreatePage() {
     setState('recording');
     setMessage('ブラウザを起動しています...');
     setSavedFile('');
+    setNoVNCPort(null);
 
     let id: string;
     try {

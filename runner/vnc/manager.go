@@ -27,12 +27,16 @@ type Session struct {
 	novnc     *exec.Cmd
 }
 
+func killAndWait(cmd *exec.Cmd) {
+	if cmd != nil && cmd.Process != nil {
+		cmd.Process.Kill()
+		cmd.Wait()
+	}
+}
+
 func (s *Session) Stop() {
 	for _, cmd := range []*exec.Cmd{s.novnc, s.x11vnc, s.xvfb} {
-		if cmd != nil && cmd.Process != nil {
-			cmd.Process.Kill()
-			cmd.Wait()
-		}
+		killAndWait(cmd)
 	}
 }
 
@@ -73,7 +77,7 @@ func (m *Manager) Start(sessionID string) (*Session, error) {
 		return nil, fmt.Errorf("Xvfb起動失敗: %v", err)
 	}
 	if err := waitForDisplay(display); err != nil {
-		xvfb.Process.Kill()
+		killAndWait(xvfb)
 		m.releaseSlot(slot)
 		return nil, err
 	}
@@ -84,7 +88,7 @@ func (m *Manager) Start(sessionID string) (*Session, error) {
 		"-nopw", "-forever", "-shared", "-quiet",
 	)
 	if err := x11vnc.Start(); err != nil {
-		xvfb.Process.Kill()
+		killAndWait(xvfb)
 		m.releaseSlot(slot)
 		return nil, fmt.Errorf("x11vnc起動失敗: %v", err)
 	}
@@ -96,15 +100,15 @@ func (m *Manager) Start(sessionID string) (*Session, error) {
 		fmt.Sprintf("localhost:%d", vncPort),
 	)
 	if err := novnc.Start(); err != nil {
-		x11vnc.Process.Kill()
-		xvfb.Process.Kill()
+		killAndWait(x11vnc)
+		killAndWait(xvfb)
 		m.releaseSlot(slot)
 		return nil, fmt.Errorf("noVNC起動失敗: %v", err)
 	}
 	if err := waitForPort(noVNCPort); err != nil {
-		novnc.Process.Kill()
-		x11vnc.Process.Kill()
-		xvfb.Process.Kill()
+		killAndWait(novnc)
+		killAndWait(x11vnc)
+		killAndWait(xvfb)
 		m.releaseSlot(slot)
 		return nil, err
 	}
