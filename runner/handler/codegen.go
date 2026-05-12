@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"e2e-runner/domain"
 	"e2e-runner/executor"
@@ -19,6 +20,11 @@ func (h *Handler) CodegenStart(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.URL == "" {
 		http.Error(w, "url is required", http.StatusBadRequest)
+		return
+	}
+	u, err := url.ParseRequestURI(body.URL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		http.Error(w, "valid http/https url is required", http.StatusBadRequest)
 		return
 	}
 	if body.Name == "" {
