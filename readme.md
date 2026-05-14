@@ -12,7 +12,8 @@ A self-hosted web portal that lets QA engineers and non-technical team members *
 1. Open the portal and enter a URL
 2. Chromium launches with Playwright's codegen
 3. Click through your app — actions are recorded automatically
-4. Close the browser → the test is saved as a `.spec.ts` file
+4. When `USE_NOVNC=true`, the live browser session is embedded in the portal via a noVNC iframe
+5. Close the browser → the test is saved as a `.spec.ts` file
 
 ### Run tests
 - **By tag** — run all tests tagged `@search`, `@cart`, etc.
@@ -39,6 +40,10 @@ A self-hosted web portal that lets QA engineers and non-technical team members *
         └── playwright-report/      ← HTML report served at /report/
 ```
 
+> **Codegen with noVNC (`USE_NOVNC=true`):** each `codegen/start` session spins up a dedicated
+> `Xvfb + x11vnc + noVNC` stack and assigns it a port in the `6080–6089` range. The runner
+> returns `noVNCPort` in the API response, and the portal embeds the live browser view as an iframe.
+
 ---
 
 ## Tech stack
@@ -49,6 +54,7 @@ A self-hosted web portal that lets QA engineers and non-technical team members *
 | API server | Go (net/http, SSE streaming) |
 | Test execution | Playwright + TypeScript |
 | Realtime logs | Server-Sent Events (SSE) |
+| Browser preview | noVNC (Xvfb + x11vnc + websockify) |
 | Container | Docker / docker-compose |
 | Infrastructure | Terraform (planned) |
 
@@ -61,6 +67,19 @@ A self-hosted web portal that lets QA engineers and non-technical team members *
 - Go 1.21+
 - Node.js 20+
 - Playwright installed in `tests/`
+
+### Option A — Docker Compose (recommended)
+
+```bash
+make up
+# Portal  → http://localhost:3000
+# Runner  → http://localhost:8080
+# noVNC   → http://localhost:6080–6089 (one port per codegen session)
+```
+
+`docker-compose.yml` sets `USE_NOVNC=true` and `NEXT_PUBLIC_NOVNC_HOST` automatically.
+
+### Option B — Manual setup
 
 ### 1. Set up tests
 
@@ -91,6 +110,19 @@ Open `http://localhost:3000` in your browser.
 
 ---
 
+## Environment variables
+
+| Variable | Service | Default | Description |
+|----------|---------|---------|-------------|
+| `TESTS_DIR` | runner | `../tests` | Path to the tests directory |
+| `PORT` | runner | `:8080` | HTTP listen address |
+| `DB_PATH` | runner | `./runner.db` | SQLite path (reserved, not yet used) |
+| `USE_NOVNC` | runner | `false` | Enable Xvfb + x11vnc + noVNC for codegen browser preview (up to 10 concurrent sessions) |
+| `NEXT_PUBLIC_API_URL` | portal | `http://localhost:8080` | Runner API base URL |
+| `NEXT_PUBLIC_NOVNC_HOST` | portal | `http://localhost` | Hostname used to build noVNC iframe URLs |
+
+---
+
 ## API
 
 | Method | Path | Description |
@@ -98,7 +130,7 @@ Open `http://localhost:3000` in your browser.
 | `GET` | `/api/tags` | List test tags scanned from `.spec.ts` files |
 | `POST` | `/api/run` | Run tests by tag or file |
 | `GET` | `/api/stream?id=` | SSE stream of run logs |
-| `POST` | `/api/codegen/start` | Start a Playwright codegen session |
+| `POST` | `/api/codegen/start` | Start a Playwright codegen session; returns `noVNCPort` when `USE_NOVNC=true` |
 | `GET` | `/api/codegen/stream?id=` | SSE stream of codegen status |
 | `GET` | `/api/scenarios` | List saved scenario files |
 | `DELETE` | `/api/scenarios?name=` | Delete a scenario file |
@@ -108,7 +140,6 @@ Open `http://localhost:3000` in your browser.
 
 ## Known limitations
 
-- **Local display required for codegen.** `playwright codegen` opens a browser on the machine running the runner. Remote/cloud deployments need a VNC or noVNC setup to stream the display — not yet supported.
 - **In-memory run history.** Completed runs are stored in memory only and lost on restart. Persistent storage is planned.
 - **No authentication.** The portal has no login. Do not expose it to the public internet as-is.
 - **Single runner.** Tests run sequentially on one machine. Parallel execution across ECS tasks is a planned feature.
