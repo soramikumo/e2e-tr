@@ -57,6 +57,14 @@ func (s *SQLiteRunStore) Save(run *domain.Run) error {
 	return err
 }
 
+func (s *SQLiteRunStore) Delete(id string) error {
+	s.mu.Lock()
+	delete(s.active, id)
+	s.mu.Unlock()
+	_, err := s.db.Exec(`DELETE FROM runs WHERE id = ?`, id)
+	return err
+}
+
 func (s *SQLiteRunStore) Get(id string) (*domain.Run, bool) {
 	s.mu.RLock()
 	r, ok := s.active[id]

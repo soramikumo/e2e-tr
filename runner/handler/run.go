@@ -39,6 +39,7 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 			executor.ExecuteTest(run, h.cfg.TestsDir, h.RunStore, h.cfg.RunTimeout)
 		}()
 	default:
+		h.RunStore.Delete(run.ID)
 		http.Error(w, "too many concurrent runs", http.StatusTooManyRequests)
 		return
 	}
