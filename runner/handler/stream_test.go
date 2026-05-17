@@ -125,7 +125,10 @@ func TestStream_ClientDisconnect_NoGoroutineLeak(t *testing.T) {
 	h.RunStore.Save(run)
 
 	srv := httptest.NewServer(http.HandlerFunc(h.Stream))
-	defer srv.Close()
+	defer func() {
+		srv.CloseClientConnections()
+		srv.Close()
+	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s?id=%s", srv.URL, run.ID), nil)
