@@ -6,6 +6,7 @@ import "e2e-runner/domain"
 type RunStore interface {
 	Save(run *domain.Run) error
 	Get(id string) (*domain.Run, bool)
+	Delete(id string) error
 }
 
 // CodegenStore はシナリオ記録セッションの保存・取得を抽象化する。
