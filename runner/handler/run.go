@@ -32,7 +32,17 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 	}
 	run := domain.NewRun(body.Tag, body.File)
 	h.RunStore.Save(run)
-	go executor.ExecuteTest(run, h.cfg.TestsDir, h.RunStore)
+	select {
+	case h.sem <- struct{}{}:
+		go func() {
+			defer func() { <-h.sem }()
+			executor.ExecuteTest(run, h.cfg.TestsDir, h.RunStore, h.cfg.RunTimeout)
+		}()
+	default:
+		h.RunStore.Delete(run.ID)
+		http.Error(w, "too many concurrent runs", http.StatusTooManyRequests)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"id": run.ID})

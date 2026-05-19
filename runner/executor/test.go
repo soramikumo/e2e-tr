@@ -2,17 +2,22 @@ package executor
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 
 	"e2e-runner/domain"
 	"e2e-runner/store"
 )
 
-func ExecuteTest(run *domain.Run, testsDir string, rs store.RunStore) {
+func ExecuteTest(run *domain.Run, testsDir string, rs store.RunStore, timeout time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	var cmd *exec.Cmd
 	if run.File != "" {
 		file := domain.SanitizeName(run.File)
@@ -20,10 +25,10 @@ func ExecuteTest(run *domain.Run, testsDir string, rs store.RunStore) {
 			file += ".spec.ts"
 		}
 		run.AddLog(fmt.Sprintf("[info] テスト開始: %s", file))
-		cmd = exec.Command("npx", "playwright", "test", "tests/"+file, "--reporter=line,html")
+		cmd = exec.CommandContext(ctx, "npx", "playwright", "test", "tests/"+file, "--reporter=line,html")
 	} else {
 		run.AddLog(fmt.Sprintf("[info] テスト開始: @%s", run.Tag))
-		cmd = exec.Command("npx", "playwright", "test", "--grep", "@"+run.Tag, "--reporter=line,html")
+		cmd = exec.CommandContext(ctx, "npx", "playwright", "test", "--grep", "@"+run.Tag, "--reporter=line,html")
 	}
 	cmd.Dir = testsDir
 
@@ -53,6 +58,12 @@ func ExecuteTest(run *domain.Run, testsDir string, rs store.RunStore) {
 	wg.Wait()
 
 	if err := cmd.Wait(); err != nil {
+		if ctx.Err() != nil {
+			run.AddLog("[error] タイムアウトにより強制終了")
+			run.Finish(false)
+			rs.Save(run)
+			return
+		}
 		run.AddLog(fmt.Sprintf("[info] テスト終了: 失敗 (%v)", err))
 		run.Finish(false)
 	} else {

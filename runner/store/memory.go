@@ -29,6 +29,13 @@ func (s *MemoryRunStore) Get(id string) (*domain.Run, bool) {
 	return r, ok
 }
 
+func (s *MemoryRunStore) Delete(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.runs, id)
+	return nil
+}
+
 type MemoryCodegenStore struct {
 	mu       sync.RWMutex
 	codegens map[string]*domain.Codegen

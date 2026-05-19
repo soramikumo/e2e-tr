@@ -1,0 +1,5 @@
+# デフォルト: 全ファイルのレビューを要求
+* @soramikumo
+
+# インフラ・CI設定は特に慎重に
+.github/  @soramikumo

@@ -14,10 +14,17 @@ type Handler struct {
 	RunStore     store.RunStore
 	CodegenStore store.CodegenStore
 	VNCManager   *vnc.Manager
+	sem          chan struct{}
 }
 
 func New(cfg *config.Config, rs store.RunStore, cs store.CodegenStore, vm *vnc.Manager) *Handler {
-	return &Handler{cfg: cfg, RunStore: rs, CodegenStore: cs, VNCManager: vm}
+	return &Handler{
+		cfg:          cfg,
+		RunStore:     rs,
+		CodegenStore: cs,
+		VNCManager:   vm,
+		sem:          make(chan struct{}, cfg.MaxConcurrentRuns),
+	}
 }
 
 func sseStart(w http.ResponseWriter) (http.Flusher, bool) {
@@ -28,6 +35,8 @@ func sseStart(w http.ResponseWriter) (http.Flusher, bool) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	f.Flush()
 	return f, true
 }
 
