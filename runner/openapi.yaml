@@ -1,0 +1,303 @@
+openapi: 3.0.3
+info:
+  title: E2E Runner API
+  description: HTTP API for the e2e-tr runner service that executes Playwright tests and manages codegen sessions.
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /api/tags:
+    get:
+      summary: List test tags
+      description: Returns all `@tag` values scanned from `.spec.ts` files in the tests directory.
+      operationId: listTags
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tags]
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                    example: ['smoke', 'search', 'cart']
+
+  /api/run:
+    post:
+      summary: Start a test run
+      description: Enqueues a test run by tag or by specific scenario file. Returns immediately with a run ID; stream logs via `/api/stream`.
+      operationId: startRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tag:
+                  type: string
+                  description: Run all tests matching this tag (e.g. `smoke`). Mutually exclusive with `file`.
+                  example: smoke
+                file:
+                  type: string
+                  description: Run a specific scenario file by name (e.g. `my-scenario.spec.ts`). Mutually exclusive with `tag`.
+                  example: my-scenario.spec.ts
+      responses:
+        '200':
+          description: Run started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+                    description: Unique run ID used to subscribe to the SSE stream.
+                    example: a1b2c3d4e5f6
+        '400':
+          description: Neither `tag` nor `file` was provided, or the request body is malformed.
+        '429':
+          description: Too many concurrent runs. Retry after a previous run finishes.
+
+  /api/stream:
+    get:
+      summary: Stream run logs (SSE)
+      description: |
+        Server-Sent Events stream for a specific run. Each `data:` line is a JSON object.
+        The stream closes after a `done` event is sent.
+      operationId: streamRun
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Run ID returned by `POST /api/run`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RunLogEvent'
+                  - $ref: '#/components/schemas/RunDoneEvent'
+        '404':
+          description: Run ID not found.
+        '500':
+          description: Streaming not supported by the server.
+
+  /api/codegen/start:
+    post:
+      summary: Start a Playwright codegen session
+      description: |
+        Launches a Playwright codegen process that records user interactions.
+        When `USE_NOVNC=true`, also returns a `noVNCPort` for live browser preview.
+        Stream session events via `/api/codegen/stream`.
+      operationId: startCodegen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: The URL to open in the codegen browser.
+                  example: https://example.com
+                name:
+                  type: string
+                  description: Scenario name for the saved file (without `.spec.ts`). Defaults to a random name.
+                  example: my-scenario
+      responses:
+        '200':
+          description: Codegen session started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, name, noVNCPort]
+                properties:
+                  id:
+                    type: string
+                    description: Session ID used to subscribe to the SSE stream.
+                    example: f6e5d4c3b2a1
+                  name:
+                    type: string
+                    description: Resolved scenario name.
+                    example: my-scenario
+                  noVNCPort:
+                    type: integer
+                    description: noVNC port for live browser preview (0 when `USE_NOVNC=false`).
+                    example: 6080
+        '400':
+          description: Missing or invalid `url` field.
+        '500':
+          description: Failed to start the VNC session.
+
+  /api/codegen/stream:
+    get:
+      summary: Stream codegen session events (SSE)
+      description: |
+        Server-Sent Events stream for a codegen session. Each `data:` line is a JSON object.
+        The stream closes after a `done` or `error` event is sent.
+      operationId: streamCodegen
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Session ID returned by `POST /api/codegen/start`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CodegenStatusEvent'
+                  - $ref: '#/components/schemas/CodegenDoneEvent'
+                  - $ref: '#/components/schemas/CodegenErrorEvent'
+        '404':
+          description: Session ID not found.
+        '500':
+          description: Streaming not supported by the server.
+
+  /api/scenarios:
+    get:
+      summary: List saved scenario files
+      description: Returns all `.spec.ts` files in the tests directory, sorted by last-modified descending.
+      operationId: listScenarios
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [scenarios]
+                properties:
+                  scenarios:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Scenario'
+    delete:
+      summary: Delete a scenario file
+      description: Permanently removes the specified `.spec.ts` file from the tests directory.
+      operationId: deleteScenario
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: Filename to delete (must end in `.spec.ts`).
+          schema:
+            type: string
+            example: my-scenario.spec.ts
+      responses:
+        '200':
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+        '400':
+          description: Invalid filename (missing `.spec.ts` suffix).
+        '404':
+          description: File not found.
+
+components:
+  schemas:
+    Scenario:
+      type: object
+      required: [name, modified, size]
+      properties:
+        name:
+          type: string
+          description: Filename of the scenario (e.g. `my-scenario.spec.ts`).
+          example: my-scenario.spec.ts
+        modified:
+          type: string
+          format: date-time
+          description: Last-modified timestamp.
+          example: '2025-05-20T12:34:56Z'
+        size:
+          type: integer
+          description: File size in bytes.
+          example: 1024
+
+    RunLogEvent:
+      type: object
+      required: [type, message]
+      properties:
+        type:
+          type: string
+          enum: [log]
+        message:
+          type: string
+          description: A single line of Playwright test output.
+          example: '[info] Running 3 tests'
+
+    RunDoneEvent:
+      type: object
+      required: [type, status]
+      properties:
+        type:
+          type: string
+          enum: [done]
+        status:
+          type: string
+          enum: [running, done, failed]
+          description: Final status of the run.
+          example: done
+
+    CodegenStatusEvent:
+      type: object
+      required: [type, message]
+      properties:
+        type:
+          type: string
+          enum: [status]
+        message:
+          type: string
+          description: Human-readable status update.
+          example: ブラウザを起動しています...
+
+    CodegenDoneEvent:
+      type: object
+      required: [type, file]
+      properties:
+        type:
+          type: string
+          enum: [done]
+        file:
+          type: string
+          description: Filename of the saved scenario.
+          example: my-scenario.spec.ts
+
+    CodegenErrorEvent:
+      type: object
+      required: [type, message]
+      properties:
+        type:
+          type: string
+          enum: [error]
+        message:
+          type: string
+          description: Error description.
+          example: 記録に失敗しました
