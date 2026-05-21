@@ -64,6 +64,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [build-runner, build-portal]
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v4.2.2
 
@@ -111,6 +114,15 @@ jobs:
       - name: Run portal E2E tests
         run: npx playwright test --config=playwright.portal.config.ts
         working-directory: tests
+
+      - name: Publish test results
+        if: always()
+        uses: dorny/test-reporter@v1  # TODO: pin to commit SHA
+        with:
+          name: E2E Test Results
+          path: tests/test-results/results.xml
+          reporter: java-junit
+          fail-on-error: false
 
       - name: Upload test report
         if: always()
