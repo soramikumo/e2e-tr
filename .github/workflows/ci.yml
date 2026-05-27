@@ -117,7 +117,7 @@ jobs:
 
       - name: Publish test results
         if: always()
-        uses: dorny/test-reporter@v1  # TODO: pin to commit SHA
+        uses: dorny/test-reporter@v3  # TODO: pin to commit SHA
         with:
           name: E2E Test Results
           path: tests/test-results/results.xml
