@@ -6,6 +6,15 @@ import { useRouter } from 'next/navigation';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 const NOVNC_HOST = process.env.NEXT_PUBLIC_NOVNC_HOST ?? 'http://localhost';
 
+function isValidUrl(val: string) {
+  try {
+    const u = new URL(val);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 type State = 'idle' | 'recording' | 'done' | 'error';
 
 export default function CreatePage() {
@@ -18,7 +27,7 @@ export default function CreatePage() {
   const router = useRouter();
 
   const startRecording = async () => {
-    if (!url) return;
+    if (!isValidUrl(url)) return;
 
     setState('recording');
     setMessage('ブラウザを起動しています...');
@@ -63,6 +72,15 @@ export default function CreatePage() {
     };
   };
 
+  const isValidUrl = (val: string) => {
+    try {
+      const u = new URL(val);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   const isRecording = state === 'recording';
 
   const stateToStatus = { idle: '', recording: 'running', done: 'done', error: 'failed' } as const;
@@ -100,7 +118,7 @@ export default function CreatePage() {
           <button
             className="record-btn"
             onClick={startRecording}
-            disabled={!url || isRecording}
+            disabled={!isValidUrl(url) || isRecording}
           >
             {isRecording ? '記録中...' : '記録開始'}
           </button>

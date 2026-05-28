@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"e2e-runner/config"
+	"e2e-runner/executor"
 	"e2e-runner/store"
 	"e2e-runner/vnc"
 )
@@ -14,6 +15,7 @@ type Handler struct {
 	RunStore     store.RunStore
 	CodegenStore store.CodegenStore
 	VNCManager   *vnc.Manager
+	Executor     *executor.Executor
 	sem          chan struct{}
 }
 
@@ -23,6 +25,7 @@ func New(cfg *config.Config, rs store.RunStore, cs store.CodegenStore, vm *vnc.M
 		RunStore:     rs,
 		CodegenStore: cs,
 		VNCManager:   vm,
+		Executor:     executor.New(executor.OSRunner{}, cfg.TestsDir),
 		sem:          make(chan struct{}, cfg.MaxConcurrentRuns),
 	}
 }

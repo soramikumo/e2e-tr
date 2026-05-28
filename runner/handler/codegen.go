@@ -6,7 +6,6 @@ import (
 	"net/url"
 
 	"e2e-runner/domain"
-	"e2e-runner/executor"
 )
 
 func (h *Handler) CodegenStart(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +42,7 @@ func (h *Handler) CodegenStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.CodegenStore.Save(c)
-	go executor.ExecuteCodegen(c, h.cfg.TestsDir, h.CodegenStore, h.VNCManager)
+	go h.Executor.ExecuteCodegen(c, h.CodegenStore, h.VNCManager)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"id": c.ID, "name": c.Name, "noVNCPort": c.NoVNCPort})

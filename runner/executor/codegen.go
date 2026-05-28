@@ -2,9 +2,9 @@ package executor
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"e2e-runner/domain"
@@ -12,30 +12,28 @@ import (
 	"e2e-runner/vnc"
 )
 
-func ExecuteCodegen(c *domain.Codegen, testsDir string, cs store.CodegenStore, vncManager *vnc.Manager) {
+func (e *Executor) ExecuteCodegen(c *domain.Codegen, cs store.CodegenStore, vncManager *vnc.Manager) {
 	name := domain.SanitizeName(c.Name)
-	outputFile := filepath.Join(testsDir, "tests", name+".spec.ts")
+	outputFile := filepath.Join(e.TestsDir, "tests", name+".spec.ts")
 
 	c.Send(domain.CodegenEvent{Type: "status", Message: "記録中... ブラウザを閉じると保存されます"})
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("npx", "playwright", "codegen", "--output", outputFile, c.URL)
-	cmd.Dir = testsDir
-	cmd.Stderr = &stderr
+	opts := RunOptions{
+		Dir:    e.TestsDir,
+		Name:   "npx",
+		Args:   []string{"playwright", "codegen", "--output", outputFile, c.URL},
+		Stderr: &stderr,
+	}
 
 	if vncManager != nil {
 		if session, ok := vncManager.Get(c.ID); ok {
 			defer vncManager.Stop(c.ID)
-			cmd.Env = append(os.Environ(), "DISPLAY="+session.Display)
+			opts.Env = append(os.Environ(), "DISPLAY="+session.Display)
 		}
 	}
 
-	if err := cmd.Start(); err != nil {
-		c.Finish("", fmt.Errorf("起動失敗: %v", err))
-		return
-	}
-
-	err := cmd.Wait()
+	err := e.Runner.Run(context.Background(), opts)
 
 	if _, statErr := os.Stat(outputFile); statErr != nil {
 		if err != nil {
