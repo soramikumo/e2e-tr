@@ -175,6 +175,17 @@ npm run storybook
 
 このリポジトリ自身のテスト戦略（テストピラミッド）→ [テスト戦略](docs/testing-strategy.md)
 
+### テストの実行
+
+```bash
+make test-runner          # Go ユニットテストのみ
+make test-portal          # ポータル E2E テスト（要: make up）
+make test-e2e             # ユーザーシナリオテストのみ（要: make up）
+make test                 # 全テスト実行（runner + portal E2E、スタックの起動/停止を自動化）
+```
+
+BDD 仕様書: [`spec/runner.md`](spec/runner.md) | [`spec/portal-ui.md`](spec/portal-ui.md)
+
 ---
 
 ## 既知の制限事項
