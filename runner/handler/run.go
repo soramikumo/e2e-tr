@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"e2e-runner/domain"
-	"e2e-runner/executor"
 )
 
 func (h *Handler) Tags(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +35,7 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 	case h.sem <- struct{}{}:
 		go func() {
 			defer func() { <-h.sem }()
-			executor.ExecuteTest(run, h.cfg.TestsDir, h.RunStore, h.cfg.RunTimeout)
+			h.Executor.ExecuteTest(run, h.RunStore, h.cfg.RunTimeout)
 		}()
 	default:
 		h.RunStore.Delete(run.ID)

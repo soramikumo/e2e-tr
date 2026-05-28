@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"e2e-runner/config"
 	"e2e-runner/domain"
@@ -203,6 +204,75 @@ func TestHandleRun_MissingBody(t *testing.T) {
 
 	if w.Result().StatusCode != http.StatusBadRequest {
 		t.Errorf("Run with empty body status = %d, want 400", w.Result().StatusCode)
+	}
+}
+
+// ── domain.ListScenarios ──────────────────────────────────────────────────────
+
+// 新しいファイルが先頭に来る順番で返ることを確認する。
+func TestListScenarios_SortedByModifiedDateDescending(t *testing.T) {
+	dir := t.TempDir()
+	testsSubDir := filepath.Join(dir, "tests")
+	os.MkdirAll(testsSubDir, 0755)
+
+	writeSpec(t, testsSubDir, "old.spec.ts", `test('a', () => {})`)
+	writeSpec(t, testsSubDir, "new.spec.ts", `test('b', () => {})`)
+
+	now := time.Now()
+	older := now.Add(-1 * time.Hour)
+	os.Chtimes(filepath.Join(testsSubDir, "old.spec.ts"), older, older)
+	os.Chtimes(filepath.Join(testsSubDir, "new.spec.ts"), now, now)
+
+	scenarios := domain.ListScenarios(dir)
+	if len(scenarios) != 2 {
+		t.Fatalf("expected 2 scenarios, got %d", len(scenarios))
+	}
+	if scenarios[0].Name != "new.spec.ts" {
+		t.Errorf("expected new.spec.ts first, got %s", scenarios[0].Name)
+	}
+	if scenarios[1].Name != "old.spec.ts" {
+		t.Errorf("expected old.spec.ts second, got %s", scenarios[1].Name)
+	}
+}
+
+// tests/ 以下の .spec.ts 以外のファイルはタグスキャン対象外であることを確認する。
+func TestScanTags_IgnoresNonSpecFiles(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "tests"), 0755)
+	writeSpec(t, filepath.Join(dir, "tests"), "helper.ts", `// @smoke @regression`)
+
+	if tags := domain.ScanTags(dir); len(tags) != 0 {
+		t.Errorf("ScanTags() should ignore non-spec files, got %v", tags)
+	}
+}
+
+// ── HTTP ハンドラー（scenarios） ──────────────────────────────────────────────
+
+// 存在しないファイルを DELETE したとき 404 が返ることを確認する。
+func TestHandleScenarios_DELETE_NotFound(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "tests"), 0755)
+
+	h := newTestHandler(t, dir)
+	req := httptest.NewRequest(http.MethodDelete, "/api/scenarios?name=notexist.spec.ts", nil)
+	w := httptest.NewRecorder()
+	h.Scenarios(w, req)
+
+	if w.Result().StatusCode != http.StatusNotFound {
+		t.Errorf("DELETE nonexistent status = %d, want 404", w.Result().StatusCode)
+	}
+}
+
+// .spec.ts でない名前を DELETE したとき 400 が返ることを確認する。
+func TestHandleScenarios_DELETE_InvalidName(t *testing.T) {
+	dir := t.TempDir()
+	h := newTestHandler(t, dir)
+	req := httptest.NewRequest(http.MethodDelete, "/api/scenarios?name=foo.ts", nil)
+	w := httptest.NewRecorder()
+	h.Scenarios(w, req)
+
+	if w.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("DELETE invalid name status = %d, want 400", w.Result().StatusCode)
 	}
 }
 
