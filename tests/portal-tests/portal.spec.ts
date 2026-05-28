@@ -202,7 +202,7 @@ test('clicking record button starts codegen and shows stream @smoke', async ({ p
   await page.getByPlaceholder('https://example.com').fill('https://example.com');
   await page.getByRole('button', { name: '記録開始' }).click();
 
-  await expect(page.getByText('保存完了')).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText('保存完了', { exact: true })).toBeVisible({ timeout: 5000 });
 });
 
 // ── ナビゲーション（追加） ─────────────────────────────────────────
