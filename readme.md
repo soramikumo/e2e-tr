@@ -1,8 +1,26 @@
+[![日本語](https://img.shields.io/badge/README-日本語-red?style=flat-square&logo=googletranslate)](readme.ja.md)
+
 # e2e-tr
 
 A self-hosted web portal that lets QA engineers and non-technical team members **record and run Playwright E2E tests from a browser** — no CLI required.
 
 > **Status:** Demo / mock version. AWS infrastructure (Terraform) is planned for a future release.
+
+---
+
+## Demo
+
+### Record a scenario
+
+> [!NOTE]
+> **GIF coming soon** — replace with `docs/assets/demo-record.gif`
+> Capture: enter URL → click "Start recording" → Chromium appears in noVNC iframe → interact → `.spec.ts` saved
+
+### Run tests
+
+> [!NOTE]
+> **GIF coming soon** — replace with `docs/assets/demo-run.gif`
+> Capture: select scenario → run → SSE log streams → jump to HTML report
 
 ---
 
@@ -25,24 +43,24 @@ A self-hosted web portal that lets QA engineers and non-technical team members *
 
 ## Architecture
 
-```
-[Portal — Next.js :3000]
-        │
-        │  HTTP + SSE
-        ▼
-[Runner — Go :8080]
-        │
-        │  exec
-        ▼
-[Playwright (Chromium)]
-        │
-        ├── tests/tests/*.spec.ts   ← recorded scenarios
-        └── playwright-report/      ← HTML report served at /report/
+```mermaid
+flowchart TD
+    Browser["Browser"]
+    Portal["Portal — Next.js :3000"]
+    Runner["Runner — Go :8080"]
+    PW["Playwright (Chromium)"]
+    Files["tests/tests/*.spec.ts"]
+    Report["playwright-report/"]
+
+    Browser -->|"HTTP + SSE"| Portal
+    Portal -->|"HTTP + SSE"| Runner
+    Runner -->|"exec"| PW
+    PW --> Files
+    PW --> Report
+    Report -->|"GET /report/"| Browser
 ```
 
-> **Codegen with noVNC (`USE_NOVNC=true`):** each `codegen/start` session spins up a dedicated
-> `Xvfb + x11vnc + noVNC` stack and assigns it a port in the `6080–6089` range. The runner
-> returns `noVNCPort` in the API response, and the portal embeds the live browser view as an iframe.
+When `USE_NOVNC=true`, each codegen session spins up a `Xvfb + x11vnc + noVNC` stack and the portal embeds the live browser as an iframe. → [noVNC architecture](docs/novnc-architecture.md)
 
 ---
 
@@ -50,7 +68,8 @@ A self-hosted web portal that lets QA engineers and non-technical team members *
 
 | Layer | Technology |
 |-------|------------|
-| Portal UI | Next.js 14 (App Router) + TypeScript |
+| Portal UI | Next.js 16 (App Router) + TypeScript |
+| UI component development | Storybook 10 |
 | API server | Go (net/http, SSE streaming) |
 | Test execution | Playwright + TypeScript |
 | Realtime logs | Server-Sent Events (SSE) |
@@ -81,7 +100,7 @@ make up
 
 ### Option B — Manual setup
 
-### 1. Set up tests
+**1. Set up tests**
 
 ```bash
 cd tests
@@ -89,7 +108,7 @@ npm install
 npx playwright install chromium
 ```
 
-### 2. Start the runner
+**2. Start the runner**
 
 ```bash
 cd runner
@@ -97,7 +116,7 @@ go run .
 # → http://localhost:8080
 ```
 
-### 3. Start the portal
+**3. Start the portal**
 
 ```bash
 cd portal
@@ -107,6 +126,20 @@ NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev
 ```
 
 Open `http://localhost:3000` in your browser.
+
+---
+
+## Storybook
+
+Develop and preview portal UI components in isolation.
+
+```bash
+cd portal
+npm run storybook
+# → http://localhost:6006
+```
+
+→ [Portal UI development guide](docs/portal-ui.md)
 
 ---
 
@@ -137,6 +170,12 @@ Open `http://localhost:3000` in your browser.
 | `GET` | `/api/scenarios` | List saved scenario files |
 | `DELETE` | `/api/scenarios?name=` | Delete a scenario file |
 | `GET` | `/report/` | Playwright HTML report |
+
+---
+
+## Testing
+
+Test strategy and pyramid for this repository → [Testing strategy](docs/testing-strategy.md)
 
 ---
 
