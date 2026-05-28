@@ -118,6 +118,8 @@ Open `http://localhost:3000` in your browser.
 | `PORT` | runner | `:8080` | HTTP listen address |
 | `DB_PATH` | runner | `./runner.db` | SQLite path (reserved, not yet used) |
 | `USE_NOVNC` | runner | `false` | Enable Xvfb + x11vnc + noVNC for codegen browser preview (up to 10 concurrent sessions) |
+| `RUN_TIMEOUT_MINUTES` | runner | `30` | Maximum minutes a single test run is allowed to execute before it is forcibly killed |
+| `MAX_CONCURRENT_RUNS` | runner | `1` | Maximum number of test runs that may execute in parallel; excess requests receive HTTP 429 |
 | `NEXT_PUBLIC_API_URL` | portal | `http://localhost:8080` | Runner API base URL |
 | `NEXT_PUBLIC_NOVNC_HOST` | portal | `http://localhost` | Hostname used to build noVNC iframe URLs |
 
@@ -142,7 +144,7 @@ Open `http://localhost:3000` in your browser.
 
 - **In-memory run history.** Completed runs are stored in memory only and lost on restart. Persistent storage is planned.
 - **No authentication.** The portal has no login. Do not expose it to the public internet as-is.
-- **Single runner.** Tests run sequentially on one machine. Parallel execution across ECS tasks is a planned feature.
+- **Configurable concurrency, single machine.** `MAX_CONCURRENT_RUNS` (default `1`) controls how many tests run in parallel, but all runs share one machine. Parallel execution across ECS tasks is a planned feature.
 
 ---
 
