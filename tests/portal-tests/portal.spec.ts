@@ -193,7 +193,8 @@ test('clicking record button starts codegen and shows stream @smoke', async ({ p
     route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
-      body: 'data: {"type":"status","message":"記録中... ブラウザを閉じると保存されます"}\n\n',
+      // done イベントで完結させる（onerror 後も state が変わらないため安定）
+      body: 'data: {"type":"done","file":"test-scenario.spec.ts"}\n\n',
     })
   );
 
@@ -201,8 +202,7 @@ test('clicking record button starts codegen and shows stream @smoke', async ({ p
   await page.getByPlaceholder('https://example.com').fill('https://example.com');
   await page.getByRole('button', { name: '記録開始' }).click();
 
-  // バッジの「記録中」を厳密一致で取得（ボタンの「記録中...」と区別するため）
-  await expect(page.getByText('記録中', { exact: true })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText('保存完了')).toBeVisible({ timeout: 5000 });
 });
 
 // ── ナビゲーション（追加） ─────────────────────────────────────────
