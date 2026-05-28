@@ -27,13 +27,17 @@ func (e *Executor) ExecuteTest(run *domain.Run, rs store.RunStore, timeout time.
 		run.AddLog(fmt.Sprintf("[info] テスト開始: @%s", run.Tag))
 		args = []string{"playwright", "test", "--grep", "@" + run.Tag, "--reporter=line,html"}
 	}
+	stdout := newLineWriter(func(line string) { run.AddLog(line) })
+	stderr := newLineWriter(func(line string) { run.AddLog("[stderr] " + line) })
 	err := e.Runner.Run(ctx, RunOptions{
 		Dir:    e.TestsDir,
 		Name:   "npx",
 		Args:   args,
-		Stdout: newLineWriter(func(line string) { run.AddLog(line) }),
-		Stderr: newLineWriter(func(line string) { run.AddLog("[stderr] " + line) }),
+		Stdout: stdout,
+		Stderr: stderr,
 	})
+	stdout.Flush()
+	stderr.Flush()
 
 	if err != nil {
 		if ctx.Err() != nil {
@@ -76,4 +80,12 @@ func (w *lineWriter) Write(p []byte) (int, error) {
 		w.buf = w.buf[i+1:]
 	}
 	return len(p), nil
+}
+
+// Flush emits any remaining buffered data that lacks a trailing newline.
+func (w *lineWriter) Flush() {
+	if line := strings.TrimSpace(string(w.buf)); line != "" {
+		w.fn(line)
+	}
+	w.buf = nil
 }
