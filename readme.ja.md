@@ -60,7 +60,7 @@ flowchart TD
     Report -->|"GET /report/"| Browser
 ```
 
-`USE_NOVNC=true` のとき、codegen セッションは `Xvfb + x11vnc + noVNC` スタックを起動し、ポータルに iframe として埋め込まれる。→ [noVNC アーキテクチャ詳細](docs/novnc-architecture.md)
+**noVNC が必要な理由:** Docker 内で Chromium を起動すると物理ディスプレイがないため、コンテナ外からブラウザを見ることも操作することもできない。noVNC は仮想ディスプレイ（Xvfb）の映像を WebSocket で配信し、ポータルの iframe に埋め込むことでこの問題を解決する。**Docker Compose + `USE_NOVNC=true` がこのツールの主要なユースケース。** → [noVNC アーキテクチャ詳細](docs/novnc-architecture.md)
 
 ---
 

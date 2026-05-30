@@ -60,7 +60,7 @@ flowchart TD
     Report -->|"GET /report/"| Browser
 ```
 
-When `USE_NOVNC=true`, each codegen session spins up a `Xvfb + x11vnc + noVNC` stack and the portal embeds the live browser as an iframe. → [noVNC architecture](docs/novnc-architecture.md)
+**Why noVNC?** When running inside Docker, Chromium has no physical display — you can't see or interact with the codegen browser from your machine. noVNC solves this by streaming the virtual display (`Xvfb`) over WebSocket, embedding it as an iframe in the portal. This is the primary use case: **Docker Compose with `USE_NOVNC=true` is the fully supported path.** → [noVNC architecture](docs/novnc-architecture.md)
 
 ---
 
