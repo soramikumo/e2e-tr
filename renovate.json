@@ -23,6 +23,11 @@
       "description": "GitHub Actions のメジャーアップデートは手動確認",
       "matchManagers": ["github-actions"],
       "automerge": false
+    },
+    {
+      "description": "Playwright は codegen 日本語化パッチ (tests/scripts/patch-codegen-i18n.js) のバンドル文字列に依存するため、自動マージせず手動確認する",
+      "matchPackageNames": ["@playwright/test"],
+      "automerge": false
     }
   ],
   "vulnerabilityAlerts": {
