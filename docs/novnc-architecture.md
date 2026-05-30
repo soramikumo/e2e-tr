@@ -1,5 +1,17 @@
 # noVNC アーキテクチャ
 
+## なぜ noVNC が必要か
+
+Docker コンテナ内で Playwright codegen を起動すると、Chromium は物理ディスプレイのない環境で動く。
+そのままでは **ブラウザが見えず操作もできない**。
+
+noVNC はこの問題を解決するために導入した。仮想ディスプレイ（Xvfb）の映像を WebSocket で配信し、
+ポータルの iframe に埋め込むことで、ブラウザからブラウザを操作できるようにする。
+
+> **Docker Compose + `USE_NOVNC=true` がこのツールの主要なユースケース。**
+
+---
+
 `USE_NOVNC=true` のとき、codegen セッションはポータル内の iframe でライブプレビューされる。
 
 ---
