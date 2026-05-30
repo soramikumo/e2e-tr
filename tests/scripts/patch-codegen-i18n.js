@@ -51,6 +51,9 @@ function findViteBundle() {
   const entries = fs.readdirSync(RECORDER_ASSET_DIR)
     .filter(f => f.startsWith('index-') && f.endsWith('.js'));
   if (entries.length === 0) throw new Error('vite recorder bundle not found in ' + RECORDER_ASSET_DIR);
+  if (entries.length > 1) {
+    console.warn(`[patch-codegen-i18n] WARNING: vite バンドル候補が複数あります (${entries.join(', ')}) — 先頭を使用します`);
+  }
   return path.join(RECORDER_ASSET_DIR, entries[0]);
 }
 
@@ -63,17 +66,32 @@ function patchFile(filePath, rules) {
     return;
   }
 
+  let applied = 0;
   for (const [en, ja] of rules) {
     if (!src.includes(en)) {
       console.warn(`[patch-codegen-i18n] WARNING: ${rel} 内に "${en}" が見つからず — スキップ`);
       continue;
     }
     src = src.replaceAll(en, ja);
+    applied++;
+  }
+
+  // 適用できたルールが 0 件だった場合、Playwright のバージョンアップでバンドル内容が変わった可能性が高い。
+  if (applied === 0) {
+    console.warn(`[patch-codegen-i18n] WARNING: ${rel} に適用できるルールがありませんでした — スキップ`);
+    return;
   }
 
   fs.writeFileSync(filePath, PATCH_MARKER + '\n' + src, 'utf8');
-  console.log(`[patch-codegen-i18n] 日本語化を適用: ${rel}`);
+  console.log(`[patch-codegen-i18n] 日本語化を適用 (${applied}/${rules.length} 件): ${rel}`);
 }
 
-patchFile(findViteBundle(), VITE_RULES);
-patchFile(CORE_BUNDLE, CORE_RULES);
+try {
+  patchFile(findViteBundle(), VITE_RULES);
+  patchFile(CORE_BUNDLE, CORE_RULES);
+} catch (err) {
+  // postinstall の一部として動くため、ここで throw すると npm install 自体が
+  // 失敗する。日本語化は付加機能なので、失敗してもインストールは続行させる。
+  console.warn(`[patch-codegen-i18n] パッチを適用できませんでした: ${err.message}`);
+  console.warn('[patch-codegen-i18n] playwright-core が見つからない可能性があります。codegen の日本語化はスキップされます。');
+}
