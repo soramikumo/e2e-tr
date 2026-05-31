@@ -12,19 +12,18 @@ import (
 
 const (
 	baseDisplay   = 99
-	baseVNCPort   = 5900
 	baseNoVNCPort = 6080
 	maxSlots      = 10
+	geometry      = "1600x900"
+	depth         = "24"
+	httpdDir      = "/usr/share/kasmvnc/www"
 )
 
 type Session struct {
 	Slot      int
 	Display   string
-	VNCPort   int
 	NoVNCPort int
-	xvfb      *exec.Cmd
-	x11vnc    *exec.Cmd
-	novnc     *exec.Cmd
+	xvnc      *exec.Cmd
 }
 
 func killAndWait(cmd *exec.Cmd) {
@@ -35,9 +34,7 @@ func killAndWait(cmd *exec.Cmd) {
 }
 
 func (s *Session) Stop() {
-	for _, cmd := range []*exec.Cmd{s.novnc, s.x11vnc, s.xvfb} {
-		killAndWait(cmd)
-	}
+	killAndWait(s.xvnc)
 }
 
 type Manager struct {
@@ -68,47 +65,34 @@ func (m *Manager) Start(sessionID string) (*Session, error) {
 	m.mu.Unlock()
 
 	display := fmt.Sprintf(":%d", baseDisplay+slot)
-	vncPort := baseVNCPort + slot
 	noVNCPort := baseNoVNCPort + slot
 
-	xvfb := exec.Command("Xvfb", display, "-screen", "0", "1280x800x24")
-	if err := xvfb.Start(); err != nil {
+	// KasmVNC の Xvnc は X サーバー + VNC + Web を 1 プロセスで提供する。
+	// -SecurityTypes None -DisableBasicAuth -sslOnly 0 は内部ツール/コンテナ内
+	// localhost 前提の無認証・平文 ws 構成（Azure を HTTPS 越しに公開する段階で
+	// wss/認証の再検討が必要）。
+	xvnc := exec.Command("Xvnc", display,
+		"-geometry", geometry,
+		"-depth", depth,
+		"-SecurityTypes", "None",
+		"-DisableBasicAuth",
+		"-sslOnly", "0",
+		"-websocketPort", fmt.Sprintf("%d", noVNCPort),
+		"-httpd", httpdDir,
+		"-interface", "0.0.0.0",
+	)
+
+	if err := xvnc.Start(); err != nil {
 		m.releaseSlot(slot)
-		return nil, fmt.Errorf("Xvfb起動失敗: %v", err)
+		return nil, fmt.Errorf("Xvnc起動失敗: %v", err)
 	}
 	if err := waitForDisplay(display); err != nil {
-		killAndWait(xvfb)
+		killAndWait(xvnc)
 		m.releaseSlot(slot)
 		return nil, err
 	}
-
-	x11vnc := exec.Command("x11vnc",
-		"-display", display,
-		"-rfbport", fmt.Sprintf("%d", vncPort),
-		"-nopw", "-forever", "-shared", "-quiet",
-	)
-	if err := x11vnc.Start(); err != nil {
-		killAndWait(xvfb)
-		m.releaseSlot(slot)
-		return nil, fmt.Errorf("x11vnc起動失敗: %v", err)
-	}
-	time.Sleep(200 * time.Millisecond)
-
-	novnc := exec.Command("websockify",
-		"--web", "/usr/share/novnc",
-		fmt.Sprintf("%d", noVNCPort),
-		fmt.Sprintf("localhost:%d", vncPort),
-	)
-	if err := novnc.Start(); err != nil {
-		killAndWait(x11vnc)
-		killAndWait(xvfb)
-		m.releaseSlot(slot)
-		return nil, fmt.Errorf("noVNC起動失敗: %v", err)
-	}
 	if err := waitForPort(noVNCPort); err != nil {
-		killAndWait(novnc)
-		killAndWait(x11vnc)
-		killAndWait(xvfb)
+		killAndWait(xvnc)
 		m.releaseSlot(slot)
 		return nil, err
 	}
@@ -116,11 +100,8 @@ func (m *Manager) Start(sessionID string) (*Session, error) {
 	s := &Session{
 		Slot:      slot,
 		Display:   display,
-		VNCPort:   vncPort,
 		NoVNCPort: noVNCPort,
-		xvfb:      xvfb,
-		x11vnc:    x11vnc,
-		novnc:     novnc,
+		xvnc:      xvnc,
 	}
 
 	m.mu.Lock()

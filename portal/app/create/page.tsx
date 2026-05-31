@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
@@ -24,6 +24,9 @@ export default function CreatePage() {
   const [message, setMessage] = useState('');
   const [savedFile, setSavedFile] = useState('');
   const [noVNCPort, setNoVNCPort] = useState<number | null>(null);
+  const [codegenId, setCodegenId] = useState<string | null>(null);
+  const [showCode, setShowCode] = useState(false);
+  const [code, setCode] = useState('');
   const router = useRouter();
 
   const startRecording = async () => {
@@ -33,6 +36,8 @@ export default function CreatePage() {
     setMessage('ブラウザを起動しています...');
     setSavedFile('');
     setNoVNCPort(null);
+    setCodegenId(null);
+    setCode('');
 
     let id: string;
     try {
@@ -44,6 +49,7 @@ export default function CreatePage() {
       const data = await res.json();
       id = data.id;
       setNoVNCPort(data.noVNCPort);
+      setCodegenId(id);
     } catch (e) {
       setState('error');
       setMessage(`起動失敗: ${e}`);
@@ -71,6 +77,31 @@ export default function CreatePage() {
       setState((s) => (s === 'recording' ? 'error' : s));
     };
   };
+
+  // コードパネルが開いている間、記録中はライブで spec をポーリング取得する。
+  // codegen が --output を逐次書くため、操作するたびにコードが更新される。
+  useEffect(() => {
+    if (!codegenId || !showCode) return;
+    if (state !== 'recording' && state !== 'done') return;
+
+    let active = true;
+    const fetchCode = async () => {
+      try {
+        const res = await fetch(`${API}/api/codegen/code?id=${codegenId}`);
+        const data = await res.json();
+        if (active) setCode(data.code ?? '');
+      } catch {
+        /* ポーリングは次回リトライするので握りつぶす */
+      }
+    };
+    fetchCode();
+    if (state !== 'recording') return;
+    const timer = setInterval(fetchCode, 1500);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [codegenId, showCode, state]);
 
   const isValidUrl = (val: string) => {
     try {
@@ -138,10 +169,25 @@ export default function CreatePage() {
             )}
             {isRecording && noVNCPort && (
               <iframe
+                className="codegen-viewer"
                 src={`${NOVNC_HOST}:${noVNCPort}/vnc.html?autoconnect=true&resize=scale`}
-                width={1280}
-                height={800}
               />
+            )}
+
+            {(isRecording || state === 'done') && (
+              <div className="codegen-code-bar">
+                <button
+                  className="tag-button"
+                  onClick={() => setShowCode((v) => !v)}
+                >
+                  {showCode ? 'コードを隠す ▴' : 'コード表示 ▾'}
+                </button>
+              </div>
+            )}
+            {showCode && (isRecording || state === 'done') && (
+              <pre className="codegen-code">
+                {code || '// まだコードがありません。ブラウザで操作すると生成されます。'}
+              </pre>
             )}
 
             {state === 'done' && savedFile && (

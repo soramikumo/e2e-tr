@@ -27,6 +27,7 @@ func main() {
 	mux.HandleFunc("/api/stream", handler.CORS(h.Stream))
 	mux.HandleFunc("/api/codegen/start", handler.CORS(h.CodegenStart))
 	mux.HandleFunc("/api/codegen/stream", handler.CORS(h.CodegenStream))
+	mux.HandleFunc("/api/codegen/code", handler.CORS(h.CodegenCode))
 	mux.HandleFunc("/api/scenarios", handler.CORS(h.Scenarios))
 
 	reportDir := filepath.Join(cfg.TestsDir, "playwright-report")

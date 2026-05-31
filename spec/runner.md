@@ -101,6 +101,18 @@ Finish時に購読中のチャンネルが全て閉じる
 ### ✅ GET /api/scenarios returns list of spec files
 `tests/` のシナリオ一覧が返る
 
+### 📝 POST /api/codegen/start returns id and noVNCPort
+記録開始で `id` と `noVNCPort` が返り、VNC セッションが起動する
+
+### ✅ GET /api/codegen/code with unknown ID returns 404
+存在しない ID で 404 が返る
+
+### ✅ GET /api/codegen/code returns current spec content while recording
+記録中セッションの spec ファイル内容が `code` フィールドで返る
+
+### ✅ GET /api/codegen/code before file exists returns empty code with 200
+ファイル生成前は空の `code` で 200 が返る（ポーリング側を単純化するため）
+
 ### ✅ DELETE /api/scenarios deletes the spec file
 指定したシナリオファイルが削除される
 
@@ -119,6 +131,15 @@ Finish時に購読中のチャンネルが全て閉じる
 
 ### ✅ execute test with file appends spec ts suffix
 `.spec.ts` なしのファイル名を渡したとき、自動で付与される
+
+### ✅ execute codegen under VNC passes viewport-size to fill framebuffer
+VNC セッション配下のとき `--viewport-size=1600,820` が引数に含まれる（ブラウザを画面いっぱいに開き Inspector をオフスクリーンに追い出すため）
+
+### ✅ execute codegen under VNC sets DISPLAY env without disabling inspector
+`DISPLAY` 環境変数が設定され、`PW_CODEGEN_NO_INSPECTOR` は付与されない（記録・保存を生かすため）
+
+### ✅ execute codegen without VNC omits viewport-size and DISPLAY
+VNC を使わないとき `--viewport-size` も `DISPLAY` も付与されない
 
 ### 📝 execute test with file already having spec ts suffix does not duplicate it
 すでに `.spec.ts` がついているファイル名を渡したとき、二重にならない
