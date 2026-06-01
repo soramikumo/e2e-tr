@@ -47,6 +47,9 @@ export default function Home() {
   const [scenarioTrace, setScenarioTrace] = useState<Record<string, boolean>>({});
   // タグ編集モーダルの対象シナリオ(null なら閉じている)。
   const [modalScenario, setModalScenario] = useState<string | null>(null);
+  // インライン名前編集の対象シナリオ名(null なら非編集)と入力中ドラフト。
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState('');
 
   const tagByName = (name: string): TagDef =>
     tags.find((t) => t.name === name) ?? { name, color: '#6e7781' };
@@ -109,6 +112,28 @@ export default function Home() {
       es.close();
       patchRun(id, (r) => (r.status === 'running' ? { ...r, status: 'failed' } : r));
     };
+  };
+
+  // ドラフトを正規化して .spec.ts を保証する（ユーザーが拡張子を省いても許容する）。
+  const normalizeSpecName = (raw: string) => {
+    const base = raw.trim().replace(/\.spec\.ts$/i, '');
+    return base ? `${base}.spec.ts` : '';
+  };
+
+  const commitRename = async (oldName: string) => {
+    const newName = normalizeSpecName(draftName);
+    setEditingName(null);
+    // 空、または変更なしなら API を呼ばずに編集を閉じる。
+    if (!newName || newName === oldName) return;
+    const res = await fetch(
+      `${API}/api/scenarios?name=${encodeURIComponent(oldName)}&to=${encodeURIComponent(newName)}`,
+      { method: 'PATCH' },
+    );
+    if (!res.ok) {
+      const msg = (await res.text()).trim();
+      alert(`名前変更に失敗しました: ${msg}`);
+    }
+    fetchData();
   };
 
   const deleteScenario = async (name: string) => {
@@ -197,7 +222,30 @@ export default function Home() {
                 <div key={s.name} className="scenario-item">
                   <div className="scenario-row">
                     <div className="scenario-meta">
-                      <span className="scenario-name">{s.name}</span>
+                      {editingName === s.name ? (
+                        <input
+                          className="scenario-name-input"
+                          autoFocus
+                          value={draftName}
+                          onChange={(e) => setDraftName(e.target.value)}
+                          onBlur={() => commitRename(s.name)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename(s.name);
+                            else if (e.key === 'Escape') setEditingName(null);
+                          }}
+                        />
+                      ) : (
+                        <span
+                          className="scenario-name"
+                          title="ダブルクリックで名前を変更"
+                          onDoubleClick={() => {
+                            setEditingName(s.name);
+                            setDraftName(s.name.replace(/\.spec\.ts$/i, ''));
+                          }}
+                        >
+                          {s.name}
+                        </span>
+                      )}
                       {(s.tags ?? []).length > 0 && (
                         <div className="scenario-tags">
                           {(s.tags ?? []).map((name) => (

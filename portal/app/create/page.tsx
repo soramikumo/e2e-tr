@@ -186,6 +186,7 @@ export default function CreatePage() {
               <iframe
                 className="codegen-viewer"
                 src={`${NOVNC_HOST}:${noVNCPort}/vnc.html?autoconnect=true&resize=scale`}
+                allow="fullscreen"
               />
             )}
 

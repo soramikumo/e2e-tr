@@ -76,6 +76,19 @@ func (s *TagStore) SetScenarioTags(scenario string, tags []string) error {
 	return domain.SaveTagMeta(s.testsDir, meta)
 }
 
+// RenameScenario はシナリオ rename 時に、タグ割当を旧名から新名へ移す。
+// 旧名に割当が無ければ何もしない（新名のエントリは作らない）。
+func (s *TagStore) RenameScenario(oldName, newName string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	meta := domain.LoadTagMeta(s.testsDir)
+	if names, ok := meta.Assignments[oldName]; ok {
+		meta.Assignments[newName] = names
+		delete(meta.Assignments, oldName)
+	}
+	return domain.SaveTagMeta(s.testsDir, meta)
+}
+
 // DropScenario はシナリオ削除時に、そのシナリオの割当エントリを取り除く。
 func (s *TagStore) DropScenario(scenario string) error {
 	s.mu.Lock()
