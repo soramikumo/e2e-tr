@@ -65,6 +65,31 @@ URL を入力すると `記録開始` ボタンが有効になる
 
 ---
 
+## 記録中のビューアとコードパネル（`/create`）
+
+ブラウザはサーバー側の仮想画面で動き、noVNC(KasmVNC)経由でビューアに映る。
+Playwright Inspector はオフスクリーンに押し出し、生成コードはポータルのパネルで見せる。
+
+### ✅ recording shows live browser viewer @smoke
+記録を開始すると noVNC ビューア（iframe）が表示され、操作対象ブラウザが枠いっぱいに映る
+
+### ✅ code toggle button appears during recording @ui
+記録中はビューアの下に `コード表示 ▾` トグルボタンが表示される
+
+### ✅ toggling code button shows and hides generated code panel @ui
+`コード表示` を押すとコードパネルが開き、もう一度押すと閉じる
+
+### ✅ code panel shows placeholder before any action @ui
+まだコードが無いとき `// まだコードがありません...` のプレースホルダが表示される
+
+### ✅ code panel updates live as user records @smoke
+ブラウザで操作するたび、コードパネルの内容が更新される（`/api/codegen/code` を定期取得）
+
+### ✅ completed recording shows saved file path and next action @ui
+記録完了時に `保存先: tests/tests/<file>` と `テスト実行ページへ` ボタンが表示される
+
+---
+
 ## ナビゲーション
 
 ### ✅ can navigate back and forth between test execution and scenario creation @smoke
