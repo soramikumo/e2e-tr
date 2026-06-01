@@ -29,7 +29,8 @@ func Load() *Config {
 			minutes = m
 		}
 	}
-	maxConcurrent := 1
+	// 既定で複数テストを並列実行できるようにする(MAX_CONCURRENT_RUNS で調整可)。
+	maxConcurrent := 4
 	if v := os.Getenv("MAX_CONCURRENT_RUNS"); v != "" {
 		if m, err := strconv.Atoi(v); err == nil {
 			maxConcurrent = m

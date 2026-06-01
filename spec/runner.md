@@ -78,7 +78,10 @@ Finish時に購読中のチャンネルが全て閉じる
 `tag` も `file` も空のリクエストで 400 が返る
 
 ### 📝 POST /api/run with tag starts execution and returns run ID
-`tag` 付きのリクエストで実行が開始され、ID が返る
+`tag` 付きのリクエストで、そのタグが割り当てられた spec 群を解決して実行が開始され、ID が返る
+
+### ✅ POST /api/run with tag having no scenarios returns 400
+割当シナリオが無いタグでの実行は 400（空の `playwright test` で全件暴発させない）
 
 ### 📝 POST /api/run with file starts execution and returns run ID
 `file` 付きのリクエストで実行が開始され、ID が返る
@@ -95,11 +98,23 @@ Finish時に購読中のチャンネルが全て閉じる
 ### ✅ GET /api/stream client disconnect does not leak goroutine
 クライアントが切断してもgoroutineが残らない
 
-### ✅ GET /api/tags returns tags found in spec files
-`tests/*.spec.ts` に含まれるタグ一覧が返る
+### ✅ GET /api/tags returns color-tagged definitions
+`.tags.json`（メタデータ）の色付きタグ定義一覧 `{name, color}` が返る。未生成時は既存 spec の `@tag` を初期色で取り込む
+
+### ✅ POST /api/tags creates or updates a tag
+`{name, color}` でタグを作成。同名なら色を更新。`color` は `#rrggbb` 必須
+
+### ✅ DELETE /api/tags removes a tag and cascades
+タグ定義を削除し、全シナリオの割当からも取り除く（stale 割当を残さない）
+
+### ✅ PUT /api/scenarios/tags replaces a scenario's assignments
+`{scenario, tags}` で指定シナリオのタグ割当を丸ごと置き換える
 
 ### ✅ GET /api/scenarios returns list of spec files
-`tests/` のシナリオ一覧が返る
+`tests/` のシナリオ一覧が、各シナリオの割当タグ付きで返る
+
+### ✅ POST /api/run with trace flag sets Trace on the run
+`trace:true` のリクエストで `Run.Trace` が true になる
 
 ### 📝 POST /api/codegen/start returns id and noVNCPort
 記録開始で `id` と `noVNCPort` が返り、VNC セッションが起動する
@@ -127,10 +142,16 @@ Finish時に購読中のチャンネルが全て閉じる
 ## Executor（executor）
 
 ### ✅ execute test with tag passes correct args to runner
-タグ指定のとき `--grep @タグ名` が引数に含まれる
+タグ実行のとき、割当 spec 群を `playwright test tests/a.spec.ts tests/b.spec.ts ...` として複数ファイル指定で渡す
 
 ### ✅ execute test with file appends spec ts suffix
 `.spec.ts` なしのファイル名を渡したとき、自動で付与される
+
+### ✅ execute test with trace enabled appends --trace on
+`Run.Trace` が true のとき `--trace on` が引数末尾に加わる
+
+### ✅ execute test without trace omits --trace flag
+`Run.Trace` が false（既定）のとき `--trace` は加わらない
 
 ### ✅ execute codegen under VNC passes viewport-size to fill framebuffer
 VNC セッション配下のとき `--viewport-size=1600,820` が引数に含まれる（ブラウザを画面いっぱいに開き Inspector をオフスクリーンに追い出すため）

@@ -30,7 +30,10 @@ Playwright E2E テストの仕様。対象: `http://localhost:3000`
 シナリオがないとき `シナリオがありません` が表示される（またはタグセクションが表示される）
 
 ### 📝 test execution page shows tag list when scenarios exist @ui
-シナリオが存在するとき `タグで実行` セクションにタグ一覧が表示される
+タグが存在するとき `タグで実行` セクションに色付きタグ一覧が表示される
+
+### ✅ tag modal creates a tag and assigns it to the scenario @ui
+シナリオ行の `🏷 タグ` ボタンでモーダルを開き、名前＋色で新規タグを作成すると、そのシナリオに割り当てられる（GitHub Labels 風）
 
 ### 📝 clicking run button starts test and shows log stream @smoke
 実行ボタンを押すと SSE でログが流れてくる
@@ -40,6 +43,18 @@ Playwright E2E テストの仕様。対象: `http://localhost:3000`
 
 ### 📝 failed test shows failure status @ui
 テストが失敗すると `失敗` ステータスが表示される
+
+### ✅ trace toggle sends trace flag in run request @ui
+`成功時もトレースを保存する` トグルを ON にすると `/api/run` に `trace:true` が送られる
+
+### ✅ run without trace toggle omits trace @ui
+トグル OFF（既定）のとき `trace:false` が送られる
+
+### ✅ per-scenario trace checkbox sends trace for that scenario @ui
+シナリオ行の `トレース` チェックボックスを ON にして実行すると、その行の実行に `trace:true` が送られる
+
+### ✅ multiple scenarios run in parallel @smoke
+複数シナリオを同時に実行でき、両方が実行中（run カードが並ぶ）になる
 
 ---
 

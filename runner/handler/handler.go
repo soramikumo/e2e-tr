@@ -14,6 +14,7 @@ type Handler struct {
 	cfg          *config.Config
 	RunStore     store.RunStore
 	CodegenStore store.CodegenStore
+	TagStore     *store.TagStore
 	VNCManager   *vnc.Manager
 	Executor     *executor.Executor
 	sem          chan struct{}
@@ -24,6 +25,7 @@ func New(cfg *config.Config, rs store.RunStore, cs store.CodegenStore, vm *vnc.M
 		cfg:          cfg,
 		RunStore:     rs,
 		CodegenStore: cs,
+		TagStore:     store.NewTagStore(cfg.TestsDir),
 		VNCManager:   vm,
 		Executor:     executor.New(executor.OSRunner{}, cfg.TestsDir),
 		sem:          make(chan struct{}, cfg.MaxConcurrentRuns),

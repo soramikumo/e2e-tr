@@ -35,6 +35,7 @@ func main() {
 	mux.HandleFunc("/api/codegen/stream", handler.CORS(h.CodegenStream))
 	mux.HandleFunc("/api/codegen/code", handler.CORS(h.CodegenCode))
 	mux.HandleFunc("/api/scenarios", handler.CORS(h.Scenarios))
+	mux.HandleFunc("/api/scenarios/tags", handler.CORS(h.ScenarioTags))
 
 	reportDir := filepath.Join(cfg.TestsDir, "playwright-report")
 	mux.Handle("/report/", http.StripPrefix("/report/", http.FileServer(http.Dir(reportDir))))

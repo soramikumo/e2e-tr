@@ -7,19 +7,15 @@ import (
 	"e2e-runner/domain"
 )
 
-func (h *Handler) Tags(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"tags": domain.ScanTags(h.cfg.TestsDir)})
-}
-
 func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	var body struct {
-		Tag  string `json:"tag"`
-		File string `json:"file"`
+		Tag   string `json:"tag"`
+		File  string `json:"file"`
+		Trace bool   `json:"trace"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
@@ -30,6 +26,16 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	run := domain.NewRun(body.Tag, body.File)
+	// タグ実行はメタデータ主導: そのタグが貼られたシナリオ群を解決して複数ファイルを走らせる。
+	if body.Tag != "" {
+		files := h.TagStore.ScenariosForTag(body.Tag)
+		if len(files) == 0 {
+			http.Error(w, "no scenarios for tag", http.StatusBadRequest)
+			return
+		}
+		run.Files = files
+	}
+	run.Trace = body.Trace
 	h.RunStore.Save(run)
 	select {
 	case h.sem <- struct{}{}:

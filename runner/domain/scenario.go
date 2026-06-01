@@ -13,6 +13,7 @@ type Scenario struct {
 	Name     string    `json:"name"`
 	Modified time.Time `json:"modified"`
 	Size     int64     `json:"size"`
+	Tags     []string  `json:"tags"`
 }
 
 func ListScenarios(testsDir string) []Scenario {

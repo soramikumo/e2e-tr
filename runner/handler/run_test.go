@@ -36,6 +36,7 @@ func newHandlerWithFakeRunner(t *testing.T) *handler.Handler {
 // タグ付きリクエストで実行が開始され、ID が返ることを確認する。
 func TestHandleRun_WithTag_ReturnsRunID(t *testing.T) {
 	h := newHandlerWithFakeRunner(t)
+	h.TagStore.SetScenarioTags("login.spec.ts", []string{"smoke"})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/run", strings.NewReader(`{"tag":"smoke"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -56,6 +57,31 @@ func TestHandleRun_WithTag_ReturnsRunID(t *testing.T) {
 	}
 	if _, ok := h.RunStore.Get(body.ID); !ok {
 		t.Errorf("run %q not found in store", body.ID)
+	}
+}
+
+// trace:true 付きリクエストで Run.Trace が立つことを確認する。
+func TestHandleRun_WithTrace_SetsTraceOnRun(t *testing.T) {
+	h := newHandlerWithFakeRunner(t)
+	h.TagStore.SetScenarioTags("login.spec.ts", []string{"smoke"})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/run", strings.NewReader(`{"tag":"smoke","trace":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.Run(w, req)
+
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Result().Body).Decode(&body); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	run, ok := h.RunStore.Get(body.ID)
+	if !ok {
+		t.Fatalf("run %q not found in store", body.ID)
+	}
+	if !run.Trace {
+		t.Error("run.Trace = false, want true")
 	}
 }
 
@@ -82,6 +108,20 @@ func TestHandleRun_WithFile_ReturnsRunID(t *testing.T) {
 	}
 }
 
+// 割当のないタグで実行すると 400 になることを確認する(空の playwright 実行を防ぐ)。
+func TestHandleRun_TagWithNoScenarios_Returns400(t *testing.T) {
+	h := newHandlerWithFakeRunner(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/run", strings.NewReader(`{"tag":"ghost"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.Run(w, req)
+
+	if w.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Result().StatusCode)
+	}
+}
+
 // 同時実行数の上限に達しているとき 429 が返ることを確認する。
 // MaxConcurrentRuns = 0 にするとセマフォが常に満杯になる。
 func TestHandleRun_ConcurrencyLimitReached_Returns429(t *testing.T) {
@@ -94,7 +134,7 @@ func TestHandleRun_ConcurrencyLimitReached_Returns429(t *testing.T) {
 	h := handler.New(cfg, store.NewMemoryRunStore(), store.NewMemoryCodegenStore(), nil)
 	h.Executor.Runner = nopRunner{}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/run", strings.NewReader(`{"tag":"smoke"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/run", strings.NewReader(`{"file":"login"}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	h.Run(w, req)
