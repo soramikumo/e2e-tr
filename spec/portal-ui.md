@@ -41,6 +41,18 @@ Playwright E2E テストの仕様。対象: `http://localhost:3000`
 ### 📝 failed test shows failure status @ui
 テストが失敗すると `失敗` ステータスが表示される
 
+### ✅ trace toggle sends trace flag in run request @ui
+`成功時もトレースを保存する` トグルを ON にすると `/api/run` に `trace:true` が送られる
+
+### ✅ run without trace toggle omits trace @ui
+トグル OFF（既定）のとき `trace:false` が送られる
+
+### ✅ per-scenario trace checkbox sends trace for that scenario @ui
+シナリオ行の `トレース` チェックボックスを ON にして実行すると、その行の実行に `trace:true` が送られる
+
+### ✅ multiple scenarios run in parallel @smoke
+複数シナリオを同時に実行でき、両方が実行中（run カードが並ぶ）になる
+
 ---
 
 ## シナリオ作成ページ（`/create`）

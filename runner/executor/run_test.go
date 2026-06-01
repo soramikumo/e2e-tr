@@ -53,6 +53,34 @@ func TestExecuteTest_TagRun_PassesCorrectArgs(t *testing.T) {
 	}
 }
 
+// trace を許可した実行では --trace on が引数末尾に加わる。
+func TestExecuteTest_TraceEnabled_AddsTraceOn(t *testing.T) {
+	fake := &fakeRunner{}
+	ex := executor.New(fake, "/tmp/tests")
+
+	run := domain.NewRun("smoke", "")
+	run.Trace = true
+	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
+
+	want := []string{"playwright", "test", "--grep", "@smoke", "--reporter=line,html", "--trace", "on"}
+	if !slices.Equal(fake.lastOpts.Args, want) {
+		t.Errorf("Args = %v, want %v", fake.lastOpts.Args, want)
+	}
+}
+
+// trace を許可しない実行(既定)では --trace は加わらない。
+func TestExecuteTest_TraceDisabled_OmitsTraceFlag(t *testing.T) {
+	fake := &fakeRunner{}
+	ex := executor.New(fake, "/tmp/tests")
+
+	run := domain.NewRun("smoke", "")
+	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
+
+	if slices.Contains(fake.lastOpts.Args, "--trace") {
+		t.Errorf("Args = %v, must not contain --trace when Trace is false", fake.lastOpts.Args)
+	}
+}
+
 func TestExecuteTest_FileRun_AddsSpecSuffix(t *testing.T) {
 	fake := &fakeRunner{}
 	ex := executor.New(fake, "/tmp/tests")

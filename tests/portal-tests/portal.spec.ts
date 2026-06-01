@@ -172,6 +172,133 @@ test('failed test shows failure status @ui', async ({ page }) => {
   await expect(page.getByText('失敗')).toBeVisible({ timeout: 5000 });
 });
 
+// ── トレース切り替え ──────────────────────────────────────────────
+
+// トレース保存トグルを ON にすると /api/run の body に trace:true が含まれる @ui
+test('trace toggle sends trace flag in run request @ui', async ({ page }) => {
+  await page.route('**/api/tags', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: ['smoke'] }) })
+  );
+  await page.route('**/api/scenarios', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ scenarios: [] }) })
+  );
+  let sentTrace: boolean | undefined;
+  await page.route('**/api/run', (route) => {
+    sentTrace = (route.request().postDataJSON() as { trace?: boolean }).trace;
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'run-trace' }) });
+  });
+  await page.route('**/api/stream*', (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'data: {"type":"done","status":"done"}\n\n',
+    })
+  );
+
+  await page.goto('/');
+  await page.getByRole('checkbox', { name: /トレースを保存/ }).check();
+  await page.getByRole('button', { name: '@smoke' }).click();
+
+  await expect(page.getByText('成功')).toBeVisible({ timeout: 5000 });
+  expect(sentTrace).toBe(true);
+});
+
+// トグル OFF(既定)のときは trace:false で送られる @ui
+test('run without trace toggle omits trace @ui', async ({ page }) => {
+  await page.route('**/api/tags', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: ['smoke'] }) })
+  );
+  await page.route('**/api/scenarios', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ scenarios: [] }) })
+  );
+  let sentTrace: boolean | undefined;
+  await page.route('**/api/run', (route) => {
+    sentTrace = (route.request().postDataJSON() as { trace?: boolean }).trace;
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'run-no-trace' }) });
+  });
+  await page.route('**/api/stream*', (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'data: {"type":"done","status":"done"}\n\n',
+    })
+  );
+
+  await page.goto('/');
+  await page.getByRole('button', { name: '@smoke' }).click();
+
+  await expect(page.getByText('成功')).toBeVisible({ timeout: 5000 });
+  expect(sentTrace).toBe(false);
+});
+
+// シナリオ行ごとの trace チェックボックスが、その行の実行に trace を反映する @ui
+test('per-scenario trace checkbox sends trace for that scenario @ui', async ({ page }) => {
+  await page.route('**/api/tags', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: [] }) })
+  );
+  await page.route('**/api/scenarios', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ scenarios: [{ name: 'a.spec.ts', modified: new Date().toISOString(), size: 1 }] }),
+    })
+  );
+  let sentTrace: boolean | undefined;
+  await page.route('**/api/run', (route) => {
+    sentTrace = (route.request().postDataJSON() as { trace?: boolean }).trace;
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'run-a' }) });
+  });
+  await page.route('**/api/stream*', (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'data: {"type":"done","status":"done"}\n\n',
+    })
+  );
+
+  await page.goto('/');
+  const row = page.locator('.scenario-row', { hasText: 'a.spec.ts' });
+  await row.getByRole('checkbox').check();
+  await row.getByRole('button', { name: '実行' }).click();
+
+  await expect(page.getByText('成功')).toBeVisible({ timeout: 5000 });
+  expect(sentTrace).toBe(true);
+});
+
+// ── 並列実行 ───────────────────────────────────────────────────────
+
+// 複数シナリオを同時に実行でき、両方が実行中になる @smoke
+test('multiple scenarios run in parallel @smoke', async ({ page }) => {
+  await page.route('**/api/tags', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: [] }) })
+  );
+  await page.route('**/api/scenarios', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        scenarios: [
+          { name: 'a.spec.ts', modified: new Date().toISOString(), size: 1 },
+          { name: 'b.spec.ts', modified: new Date().toISOString(), size: 1 },
+        ],
+      }),
+    })
+  );
+  let n = 0;
+  await page.route('**/api/run', (route) => {
+    n += 1;
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: `run-${n}` }) });
+  });
+  // 解決しない＝両方の run が実行中のまま維持される。
+  await page.route('**/api/stream*', () => {
+    /* keep SSE pending */
+  });
+
+  await page.goto('/');
+  await page.locator('.scenario-row', { hasText: 'a.spec.ts' }).getByRole('button', { name: '実行' }).click();
+  await page.locator('.scenario-row', { hasText: 'b.spec.ts' }).getByRole('button', { name: '実行' }).click();
+
+  await expect(page.getByText('実行中...')).toHaveCount(2);
+});
+
 // ── シナリオ作成ページ（追加） ─────────────────────────────────────
 
 // http/https 以外の URL を入力しても記録ボタンが有効にならない @ui

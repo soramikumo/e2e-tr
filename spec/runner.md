@@ -101,6 +101,9 @@ Finish時に購読中のチャンネルが全て閉じる
 ### ✅ GET /api/scenarios returns list of spec files
 `tests/` のシナリオ一覧が返る
 
+### ✅ POST /api/run with trace flag sets Trace on the run
+`trace:true` のリクエストで `Run.Trace` が true になる
+
 ### ✅ DELETE /api/scenarios deletes the spec file
 指定したシナリオファイルが削除される
 
@@ -119,6 +122,12 @@ Finish時に購読中のチャンネルが全て閉じる
 
 ### ✅ execute test with file appends spec ts suffix
 `.spec.ts` なしのファイル名を渡したとき、自動で付与される
+
+### ✅ execute test with trace enabled appends --trace on
+`Run.Trace` が true のとき `--trace on` が引数末尾に加わる
+
+### ✅ execute test without trace omits --trace flag
+`Run.Trace` が false（既定）のとき `--trace` は加わらない
 
 ### 📝 execute test with file already having spec ts suffix does not duplicate it
 すでに `.spec.ts` がついているファイル名を渡したとき、二重にならない

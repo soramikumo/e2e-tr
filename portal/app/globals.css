@@ -82,6 +82,89 @@ h2 {
   font-size: 0.875rem;
 }
 
+/* ── Trace toggle ── */
+.trace-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.trace-toggle input {
+  cursor: pointer;
+}
+
+/* トグルスイッチ: 通常は無彩色、ON で緑 */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #334155;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #f8fafc;
+  transition: transform 0.15s;
+}
+
+.switch:checked {
+  background: #16a34a;
+}
+
+.switch:checked::before {
+  transform: translateX(16px);
+}
+
+.trace-toggle .trace-hint {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.trace-toggle.row-trace {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-right: 0.25rem;
+}
+
+/* ── 並列 run カード ── */
+.run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.run-card + .run-card {
+  border-top: 1px solid #334155;
+  padding-top: 1.25rem;
+}
+
+/* シナリオ行 + その実行結果カードを 1 セットにまとめる */
+.scenario-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.scenario-item .run-card {
+  border-left: 2px solid #334155;
+  padding-left: 1rem;
+}
+
 /* ── Tag buttons ── */
 .tags {
   display: flex;
@@ -126,7 +209,7 @@ h2 {
 .scenario-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .scenario-row {

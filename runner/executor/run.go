@@ -27,6 +27,10 @@ func (e *Executor) ExecuteTest(run *domain.Run, rs store.RunStore, timeout time.
 		run.AddLog(fmt.Sprintf("[info] テスト開始: @%s", run.Tag))
 		args = []string{"playwright", "test", "--grep", "@" + run.Tag, "--reporter=line,html"}
 	}
+	// trace を許可した実行では成功時も trace を保存する(config 既定の on-first-retry を上書き)。
+	if run.Trace {
+		args = append(args, "--trace", "on")
+	}
 	stdout := newLineWriter(func(line string) { run.AddLog(line) })
 	stderr := newLineWriter(func(line string) { run.AddLog("[stderr] " + line) })
 	err := e.Runner.Run(ctx, RunOptions{

@@ -59,6 +59,30 @@ func TestHandleRun_WithTag_ReturnsRunID(t *testing.T) {
 	}
 }
 
+// trace:true 付きリクエストで Run.Trace が立つことを確認する。
+func TestHandleRun_WithTrace_SetsTraceOnRun(t *testing.T) {
+	h := newHandlerWithFakeRunner(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/run", strings.NewReader(`{"tag":"smoke","trace":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.Run(w, req)
+
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Result().Body).Decode(&body); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	run, ok := h.RunStore.Get(body.ID)
+	if !ok {
+		t.Fatalf("run %q not found in store", body.ID)
+	}
+	if !run.Trace {
+		t.Error("run.Trace = false, want true")
+	}
+}
+
 // ファイル指定のリクエストで実行が開始され、ID が返ることを確認する。
 func TestHandleRun_WithFile_ReturnsRunID(t *testing.T) {
 	h := newHandlerWithFakeRunner(t)

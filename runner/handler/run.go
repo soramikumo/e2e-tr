@@ -18,8 +18,9 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Tag  string `json:"tag"`
-		File string `json:"file"`
+		Tag   string `json:"tag"`
+		File  string `json:"file"`
+		Trace bool   `json:"trace"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
@@ -30,6 +31,7 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	run := domain.NewRun(body.Tag, body.File)
+	run.Trace = body.Trace
 	h.RunStore.Save(run)
 	select {
 	case h.sem <- struct{}{}:

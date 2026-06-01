@@ -20,6 +20,7 @@ type Run struct {
 	ID        string    `json:"id"`
 	Tag       string    `json:"tag,omitempty"`
 	File      string    `json:"file,omitempty"`
+	Trace     bool      `json:"trace,omitempty"` // true なら成功時も trace を保存(--trace on)
 	Status    RunStatus `json:"status"`
 	StartedAt time.Time `json:"started_at"`
 

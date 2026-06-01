@@ -3,7 +3,7 @@ WORKDIR /app
 COPY . .
 RUN go build -o runner .
 
-FROM mcr.microsoft.com/playwright:v1.59.1-jammy
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy
 WORKDIR /app
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \

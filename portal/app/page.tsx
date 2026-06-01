@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
-type Status = 'idle' | 'running' | 'done' | 'failed';
+type RunStatus = 'running' | 'done' | 'failed';
 
 interface Scenario {
   name: string;
@@ -17,20 +17,32 @@ interface LogLine {
   kind: 'default' | 'info' | 'error';
 }
 
+// 並列実行に対応するため、実行中/完了の run を個別に保持する。
+interface RunState {
+  id: string;
+  label: string;
+  status: RunStatus;
+  logs: LogLine[];
+}
+
 function classifyLine(text: string): LogLine['kind'] {
   if (text.startsWith('[info]')) return 'info';
   if (text.startsWith('[error]') || text.startsWith('[stderr]')) return 'error';
   return 'default';
 }
 
+const badgeLabel: Record<RunStatus, string> = {
+  running: '実行中...',
+  done: '成功',
+  failed: '失敗',
+};
+
 export default function Home() {
   const [tags, setTags] = useState<string[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [status, setStatus] = useState<Status>('idle');
-  const [activeLabel, setActiveLabel] = useState<string | null>(null);
-  const [logs, setLogs] = useState<LogLine[]>([]);
-  const [runId, setRunId] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [runs, setRuns] = useState<RunState[]>([]);
+  const [tagTrace, setTagTrace] = useState(false);
+  const [scenarioTrace, setScenarioTrace] = useState<Record<string, boolean>>({});
 
   const fetchData = useCallback(() => {
     fetch(`${API}/api/tags`)
@@ -45,45 +57,50 @@ export default function Home() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+  const patchRun = (id: string, fn: (r: RunState) => RunState) =>
+    setRuns((prev) => prev.map((r) => (r.id === id ? fn(r) : r)));
 
-  const startRun = async (label: string, body: { tag?: string; file?: string }) => {
-    setActiveLabel(label);
-    setLogs([]);
-    setStatus('running');
-    setRunId(null);
-
+  const startRun = async (label: string, body: { tag?: string; file?: string }, trace: boolean) => {
     let id: string;
     try {
       const res = await fetch(`${API}/api/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, trace }),
       });
+      if (!res.ok) {
+        const msg = (await res.text()).trim();
+        setRuns((prev) => [
+          { id: `err-${Date.now()}`, label, status: 'failed', logs: [{ text: `[error] 起動失敗: ${msg}`, kind: 'error' }] },
+          ...prev,
+        ]);
+        return;
+      }
       ({ id } = await res.json());
     } catch (e) {
-      setLogs([{ text: `[error] 起動失敗: ${e}`, kind: 'error' }]);
-      setStatus('failed');
+      setRuns((prev) => [
+        { id: `err-${Date.now()}`, label, status: 'failed', logs: [{ text: `[error] 起動失敗: ${e}`, kind: 'error' }] },
+        ...prev,
+      ]);
       return;
     }
 
-    setRunId(id);
+    // 新しい run を先頭に追加（同一対象の古い run は置き換える）。
+    setRuns((prev) => [{ id, label, status: 'running', logs: [] }, ...prev.filter((r) => r.label !== label)]);
 
     const es = new EventSource(`${API}/api/stream?id=${id}`);
     es.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === 'log') {
-        setLogs((prev) => [...prev, { text: data.message, kind: classifyLine(data.message) }]);
+        patchRun(id, (r) => ({ ...r, logs: [...r.logs, { text: data.message, kind: classifyLine(data.message) }] }));
       } else if (data.type === 'done') {
-        setStatus(data.status === 'done' ? 'done' : 'failed');
+        patchRun(id, (r) => ({ ...r, status: data.status === 'done' ? 'done' : 'failed' }));
         es.close();
       }
     };
     es.onerror = () => {
       es.close();
-      setStatus((s) => (s === 'running' ? 'failed' : s));
+      patchRun(id, (r) => (r.status === 'running' ? { ...r, status: 'failed' } : r));
     };
   };
 
@@ -92,9 +109,29 @@ export default function Home() {
     fetchData();
   };
 
-  const badgeLabel: Record<Status, string> = {
-    idle: '', running: '実行中...', done: '成功', failed: '失敗',
-  };
+  // 同じ対象が実行中のあいだは、その実行ボタンだけ無効化して二重起動を防ぐ。
+  const runningLabels = new Set(runs.filter((r) => r.status === 'running').map((r) => r.label));
+  // ラベルごとの最新 run（runs は先頭が新しい）。
+  const latestRun = (label: string) => runs.find((r) => r.label === label);
+
+  const renderRunCard = (run: RunState) => (
+    <div className="run-card">
+      <div className="output-header">
+        <span className="tag-label">{run.label}</span>
+        <span className={`badge ${run.status}`}>{badgeLabel[run.status]}</span>
+      </div>
+      <pre className="terminal">
+        {run.logs.map((line, i) => (
+          <span key={i} className={`log-line ${line.kind}`}>{line.text + '\n'}</span>
+        ))}
+      </pre>
+      {run.status !== 'running' && !run.id.startsWith('err-') && (
+        <a className="report-link" href={`${API}/report/`} target="_blank" rel="noopener noreferrer">
+          HTMLレポートを開く →
+        </a>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -102,19 +139,31 @@ export default function Home() {
 
       {tags.length > 0 && (
         <section>
-          <h2>タグで実行</h2>
+          <div className="output-header">
+            <h2 style={{ margin: 0 }}>タグで実行</h2>
+          </div>
           <div className="tags">
             {tags.map((tag) => (
               <button
                 key={tag}
-                className={`tag-button${activeLabel === `@${tag}` && status === 'running' ? ' active' : ''}`}
-                onClick={() => startRun(`@${tag}`, { tag })}
-                disabled={status === 'running'}
+                className={`tag-button${runningLabels.has(`@${tag}`) ? ' active' : ''}`}
+                onClick={() => startRun(`@${tag}`, { tag }, tagTrace)}
+                disabled={runningLabels.has(`@${tag}`)}
               >
                 @{tag}
               </button>
             ))}
           </div>
+          {tags.some((t) => latestRun(`@${t}`)) && (
+            <div className="run-list">
+              {tags
+                .map((t) => latestRun(`@${t}`))
+                .filter((r): r is RunState => !!r)
+                .map((run) => (
+                  <div key={run.id}>{renderRunCard(run)}</div>
+                ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -124,60 +173,46 @@ export default function Home() {
           <p className="empty">シナリオがありません。「シナリオ作成」から作成してください。</p>
         ) : (
           <div className="scenario-list">
-            {scenarios.map((s) => (
-              <div key={s.name} className="scenario-row">
-                <span className="scenario-name">{s.name}</span>
-                <div className="scenario-actions">
-                  <button
-                    className="run-btn"
-                    onClick={() => startRun(s.name, { file: s.name })}
-                    disabled={status === 'running'}
-                  >
-                    実行
-                  </button>
-                  <button
-                    className="delete-btn"
-                    onClick={() => deleteScenario(s.name)}
-                    disabled={status === 'running'}
-                  >
-                    削除
-                  </button>
+            {scenarios.map((s) => {
+              const run = latestRun(s.name);
+              return (
+                <div key={s.name} className="scenario-item">
+                  <div className="scenario-row">
+                    <span className="scenario-name">{s.name}</span>
+                    <div className="scenario-actions">
+                      <label className="trace-toggle row-trace">
+                        <input
+                          type="checkbox"
+                          className="switch"
+                          checked={!!scenarioTrace[s.name]}
+                          onChange={(e) => setScenarioTrace((prev) => ({ ...prev, [s.name]: e.target.checked }))}
+                          aria-label={`トレース ${s.name}`}
+                        />
+                        トレース
+                      </label>
+                      <button
+                        className="run-btn"
+                        onClick={() => startRun(s.name, { file: s.name }, !!scenarioTrace[s.name])}
+                        disabled={runningLabels.has(s.name)}
+                      >
+                        実行
+                      </button>
+                      <button
+                        className="delete-btn"
+                        onClick={() => deleteScenario(s.name)}
+                        disabled={runningLabels.has(s.name)}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </div>
+                  {run && renderRunCard(run)}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
-
-      {(logs.length > 0 || status !== 'idle') && (
-        <section>
-          <div className="output-header">
-            <div className="output-title">
-              <h2 style={{ margin: 0 }}>実行ログ</h2>
-              {activeLabel && <span className="tag-label">{activeLabel}</span>}
-            </div>
-            {status !== 'idle' && (
-              <span className={`badge ${status}`}>{badgeLabel[status]}</span>
-            )}
-          </div>
-          <pre className="terminal">
-            {logs.map((line, i) => (
-              <span key={i} className={`log-line ${line.kind}`}>{line.text + '\n'}</span>
-            ))}
-            <div ref={bottomRef} />
-          </pre>
-          {status !== 'running' && runId && (
-            <a
-              className="report-link"
-              href={`${API}/report/`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              HTMLレポートを開く →
-            </a>
-          )}
-        </section>
-      )}
     </>
   );
 }
