@@ -32,7 +32,12 @@ func (h *Handler) Scenarios(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// シナリオ削除に伴い、そのファイルへのタグ割当も取り除く。
-		h.TagStore.DropScenario(name)
+		// ここで失敗すると spec は消えたのに割当だけ残り、タグ実行時に
+		// 存在しないファイルを解決してしまうため、整合性のため 500 を返す。
+		if err := h.TagStore.DropScenario(name); err != nil {
+			http.Error(w, "tag cleanup failed", http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 

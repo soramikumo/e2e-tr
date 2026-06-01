@@ -131,9 +131,28 @@ func TestListScenarios(t *testing.T) {
 func TestHandleTags(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "tests"), 0755)
-	writeSpec(t, filepath.Join(dir, "tests"), "s.spec.ts", `test('@api smoke', () => {})`)
 
 	h := newTestHandler(t, dir)
+
+	// .tags.json 未生成のうちは空(spec の @tag は取り込まない＝ゴーストタグを作らない)。
+	emptyReq := httptest.NewRequest(http.MethodGet, "/api/tags", nil)
+	emptyW := httptest.NewRecorder()
+	h.Tags(emptyW, emptyReq)
+	var empty struct {
+		Tags []domain.TagDef `json:"tags"`
+	}
+	if err := json.NewDecoder(emptyW.Result().Body).Decode(&empty); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if len(empty.Tags) != 0 {
+		t.Errorf("expected no tags before any upsert, got %+v", empty.Tags)
+	}
+
+	// 明示的に作成したタグが色付きで返ること。
+	if err := h.TagStore.UpsertTag("api", "#0e8a16"); err != nil {
+		t.Fatalf("UpsertTag: %v", err)
+	}
+
 	req := httptest.NewRequest(http.MethodGet, "/api/tags", nil)
 	w := httptest.NewRecorder()
 	h.Tags(w, req)
@@ -142,20 +161,16 @@ func TestHandleTags(t *testing.T) {
 		t.Fatalf("Tags status = %d, want 200", w.Result().StatusCode)
 	}
 	var body struct {
-		Tags []struct {
-			Name  string `json:"name"`
-			Color string `json:"color"`
-		} `json:"tags"`
+		Tags []domain.TagDef `json:"tags"`
 	}
 	if err := json.NewDecoder(w.Result().Body).Decode(&body); err != nil {
 		t.Fatalf("decode error: %v", err)
 	}
-	if len(body.Tags) == 0 {
-		t.Error("expected at least one tag in response")
+	if len(body.Tags) != 1 || body.Tags[0].Name != "api" {
+		t.Fatalf("unexpected tags: %+v", body.Tags)
 	}
-	// 既存 spec の @tag がブートストラップで初期色付きタグになる。
-	if body.Tags[0].Color == "" {
-		t.Error("expected bootstrapped tag to have a color")
+	if body.Tags[0].Color != "#0e8a16" {
+		t.Errorf("expected color #0e8a16, got %q", body.Tags[0].Color)
 	}
 }
 

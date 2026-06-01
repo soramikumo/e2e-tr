@@ -7,9 +7,6 @@ import (
 	"sort"
 )
 
-// DefaultTagColor は既存 spec から取り込んだタグに割り当てる初期色(GitHub 風グレー)。
-const DefaultTagColor = "#6e7781"
-
 // TagDef は色付きのタグ定義。GitHub の Label に相当する。
 type TagDef struct {
 	Name  string `json:"name"`
@@ -27,8 +24,7 @@ func tagMetaPath(testsDir string) string {
 	return filepath.Join(testsDir, ".tags.json")
 }
 
-// LoadTagMeta は .tags.json を読み込む。未生成の場合は既存 spec の @tag を
-// 取り込んで初期メタデータを組み立てる(マイグレーション)。
+// LoadTagMeta は .tags.json を読み込む。未生成の場合は空のメタデータを返す。
 func LoadTagMeta(testsDir string) *TagMeta {
 	data, err := os.ReadFile(tagMetaPath(testsDir))
 	if err == nil {
@@ -40,17 +36,15 @@ func LoadTagMeta(testsDir string) *TagMeta {
 			return &meta
 		}
 	}
-	return bootstrapTagMeta(testsDir)
+	return emptyTagMeta()
 }
 
-// bootstrapTagMeta は既存 spec 内の @tag を初期タグ定義に変換する。
-// 割当は spec 本文からは復元しない(粒度が異なるため)ので空のまま。
-func bootstrapTagMeta(testsDir string) *TagMeta {
-	tags := make([]TagDef, 0)
-	for _, name := range ScanTags(testsDir) {
-		tags = append(tags, TagDef{Name: name, Color: DefaultTagColor})
-	}
-	return &TagMeta{Tags: tags, Assignments: map[string][]string{}}
+// emptyTagMeta は割当もタグ定義も持たない初期メタデータを返す。
+// 旧来は spec 内の @tag を初期定義に変換していたが、codegen 生成のシナリオは
+// 意味ある @tag を持たず、import 文の @playwright を誤検出してゴーストタグ
+// (割当なしでクリックすると 400 になるタグ)を量産していたため廃止した。
+func emptyTagMeta() *TagMeta {
+	return &TagMeta{Tags: make([]TagDef, 0), Assignments: map[string][]string{}}
 }
 
 // SaveTagMeta は .tags.json へ整形して書き出す。
