@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { TagModal, TagDef } from '../TagModal';
 
@@ -28,6 +28,9 @@ export default function CreatePage() {
   const [tagModalOpen, setTagModalOpen] = useState(false);
   const [allTags, setAllTags] = useState<TagDef[]>([]);
   const [assignedTags, setAssignedTags] = useState<string[]>([]);
+  const [codegenId, setCodegenId] = useState<string | null>(null);
+  const [showCode, setShowCode] = useState(false);
+  const [code, setCode] = useState('');
   const router = useRouter();
 
   // モーダルを開くたびに、サーバ上の最新の割当を取り直す。
@@ -57,6 +60,8 @@ export default function CreatePage() {
     setMessage('ブラウザを起動しています...');
     setSavedFile('');
     setNoVNCPort(null);
+    setCodegenId(null);
+    setCode('');
 
     let id: string;
     try {
@@ -68,6 +73,7 @@ export default function CreatePage() {
       const data = await res.json();
       id = data.id;
       setNoVNCPort(data.noVNCPort);
+      setCodegenId(id);
     } catch (e) {
       setState('error');
       setMessage(`起動失敗: ${e}`);
@@ -96,14 +102,30 @@ export default function CreatePage() {
     };
   };
 
-  const isValidUrl = (val: string) => {
-    try {
-      const u = new URL(val);
-      return u.protocol === 'http:' || u.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  };
+  // コードパネルが開いている間、記録中はライブで spec をポーリング取得する。
+  // codegen が --output を逐次書くため、操作するたびにコードが更新される。
+  useEffect(() => {
+    if (!codegenId || !showCode) return;
+    if (state !== 'recording' && state !== 'done') return;
+
+    let active = true;
+    const fetchCode = async () => {
+      try {
+        const res = await fetch(`${API}/api/codegen/code?id=${codegenId}`);
+        const data = await res.json();
+        if (active) setCode(data.code ?? '');
+      } catch {
+        /* ポーリングは次回リトライするので握りつぶす */
+      }
+    };
+    fetchCode();
+    if (state !== 'recording') return;
+    const timer = setInterval(fetchCode, 1500);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [codegenId, showCode, state]);
 
   const isRecording = state === 'recording';
 
@@ -162,10 +184,25 @@ export default function CreatePage() {
             )}
             {isRecording && noVNCPort && (
               <iframe
+                className="codegen-viewer"
                 src={`${NOVNC_HOST}:${noVNCPort}/vnc.html?autoconnect=true&resize=scale`}
-                width={1280}
-                height={800}
               />
+            )}
+
+            {(isRecording || state === 'done') && (
+              <div className="codegen-code-bar">
+                <button
+                  className="tag-button"
+                  onClick={() => setShowCode((v) => !v)}
+                >
+                  {showCode ? 'コードを隠す ▴' : 'コード表示 ▾'}
+                </button>
+              </div>
+            )}
+            {showCode && (isRecording || state === 'done') && (
+              <pre className="codegen-code">
+                {code || '// まだコードがありません。ブラウザで操作すると生成されます。'}
+              </pre>
             )}
 
             {state === 'done' && savedFile && (

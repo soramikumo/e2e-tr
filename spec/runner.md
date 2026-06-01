@@ -116,6 +116,18 @@ Finish時に購読中のチャンネルが全て閉じる
 ### ✅ POST /api/run with trace flag sets Trace on the run
 `trace:true` のリクエストで `Run.Trace` が true になる
 
+### 📝 POST /api/codegen/start returns id and noVNCPort
+記録開始で `id` と `noVNCPort` が返り、VNC セッションが起動する
+
+### ✅ GET /api/codegen/code with unknown ID returns 404
+存在しない ID で 404 が返る
+
+### ✅ GET /api/codegen/code returns current spec content while recording
+記録中セッションの spec ファイル内容が `code` フィールドで返る
+
+### ✅ GET /api/codegen/code before file exists returns empty code with 200
+ファイル生成前は空の `code` で 200 が返る（ポーリング側を単純化するため）
+
 ### ✅ DELETE /api/scenarios deletes the spec file
 指定したシナリオファイルが削除される
 
@@ -140,6 +152,15 @@ Finish時に購読中のチャンネルが全て閉じる
 
 ### ✅ execute test without trace omits --trace flag
 `Run.Trace` が false（既定）のとき `--trace` は加わらない
+
+### ✅ execute codegen under VNC passes viewport-size to fill framebuffer
+VNC セッション配下のとき `--viewport-size=1600,820` が引数に含まれる（ブラウザを画面いっぱいに開き Inspector をオフスクリーンに追い出すため）
+
+### ✅ execute codegen under VNC sets DISPLAY env without disabling inspector
+`DISPLAY` 環境変数が設定され、`PW_CODEGEN_NO_INSPECTOR` は付与されない（記録・保存を生かすため）
+
+### ✅ execute codegen without VNC omits viewport-size and DISPLAY
+VNC を使わないとき `--viewport-size` も `DISPLAY` も付与されない
 
 ### 📝 execute test with file already having spec ts suffix does not duplicate it
 すでに `.spec.ts` がついているファイル名を渡したとき、二重にならない

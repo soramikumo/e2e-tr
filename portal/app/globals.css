@@ -487,6 +487,38 @@ h2 {
   color: #64748b;
 }
 
+/* codegen ライブビューア: アスペクト比をサーバー解像度(1920x1080=16:9)に
+   合わせ、resize=scale で全体を見切れなく収める(レターボックス/クリップ無し) */
+.codegen-viewer {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 80vh;
+  border: 0;
+  border-radius: 8px;
+  background: #0f172a;
+}
+
+/* Inspector の代わりにポータルで見せる生成コードパネル */
+.codegen-code-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.codegen-code {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #0b1020;
+  border: 1px solid #1e293b;
+  color: #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
 .done-actions {
   margin-top: 1rem;
 }
