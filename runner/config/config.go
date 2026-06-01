@@ -13,6 +13,13 @@ type Config struct {
 	UseNoVNC          bool
 	RunTimeout        time.Duration
 	MaxConcurrentRuns int
+
+	// KasmVNC(Xvnc)のセキュリティ構成。既定は内部/コンテナ localhost 前提の
+	// 無認証・平文 ws。Azure 等へ HTTPS 公開する際は env で締める。
+	VNCSecurityTypes    string // -SecurityTypes（既定 "None"=無認証）
+	VNCDisableBasicAuth bool   // 既定 true。BasicAuth を使うなら false
+	VNCSSLOnly          bool   // 既定 false。true で wss を強制（-sslOnly 1）
+	VNCInterface        string // バインド先（既定 "0.0.0.0"）
 }
 
 func Load() *Config {
@@ -37,6 +44,11 @@ func Load() *Config {
 		UseNoVNC:          boolEnv("USE_NOVNC", true),
 		RunTimeout:        time.Duration(minutes) * time.Minute,
 		MaxConcurrentRuns: maxConcurrent,
+
+		VNCSecurityTypes:    env("VNC_SECURITY_TYPES", "None"),
+		VNCDisableBasicAuth: boolEnv("VNC_DISABLE_BASIC_AUTH", true),
+		VNCSSLOnly:          boolEnv("VNC_SSL_ONLY", false),
+		VNCInterface:        env("VNC_INTERFACE", "0.0.0.0"),
 	}
 }
 

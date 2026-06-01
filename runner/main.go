@@ -19,7 +19,13 @@ func main() {
 	// if err != nil { log.Fatalf("DB初期化失敗: %v", err) }
 	runStore := store.NewMemoryRunStore()
 
-	h := handler.New(cfg, runStore, store.NewMemoryCodegenStore(), vnc.NewManager())
+	vm := vnc.NewManager(vnc.Options{
+		SecurityTypes:    cfg.VNCSecurityTypes,
+		DisableBasicAuth: cfg.VNCDisableBasicAuth,
+		SSLOnly:          cfg.VNCSSLOnly,
+		Interface:        cfg.VNCInterface,
+	})
+	h := handler.New(cfg, runStore, store.NewMemoryCodegenStore(), vm)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/tags", handler.CORS(h.Tags))

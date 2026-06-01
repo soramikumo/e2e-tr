@@ -8,7 +8,20 @@ import (
 	"path/filepath"
 
 	"e2e-runner/domain"
+	"e2e-runner/executor"
+	"e2e-runner/vnc"
 )
+
+// vncSessions は *vnc.Manager を VNCSessions インターフェースへ安全に変換する。
+// nil の *vnc.Manager をそのままインターフェースへ代入すると「型あり・値 nil」の
+// 非 nil インターフェースになり、ExecuteCodegen 内の nil ガードをすり抜けて nil
+// レシーバ呼び出しで panic する。nil は型なし nil インターフェースとして返す。
+func vncSessions(m *vnc.Manager) executor.VNCSessions {
+	if m == nil {
+		return nil
+	}
+	return m
+}
 
 func (h *Handler) CodegenStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -44,7 +57,7 @@ func (h *Handler) CodegenStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.CodegenStore.Save(c)
-	go h.Executor.ExecuteCodegen(c, h.CodegenStore, h.VNCManager)
+	go h.Executor.ExecuteCodegen(c, h.CodegenStore, vncSessions(h.VNCManager))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"id": c.ID, "name": c.Name, "noVNCPort": c.NoVNCPort})

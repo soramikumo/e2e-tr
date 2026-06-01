@@ -103,15 +103,6 @@ export default function CreatePage() {
     };
   }, [codegenId, showCode, state]);
 
-  const isValidUrl = (val: string) => {
-    try {
-      const u = new URL(val);
-      return u.protocol === 'http:' || u.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  };
-
   const isRecording = state === 'recording';
 
   const stateToStatus = { idle: '', recording: 'running', done: 'done', error: 'failed' } as const;

@@ -37,13 +37,33 @@ func (s *Session) Stop() {
 	killAndWait(s.xvnc)
 }
 
+// Options は KasmVNC(Xvnc)のセキュリティ構成。config から注入する。
+// vnc パッケージは config に依存しない（依存方向を main 経由の一方向に保つ）。
+type Options struct {
+	SecurityTypes    string // -SecurityTypes（空なら "None"）
+	DisableBasicAuth bool   // true なら -DisableBasicAuth を付与
+	SSLOnly          bool   // true なら -sslOnly 1、false なら 0
+	Interface        string // -interface（空なら "0.0.0.0"）
+}
+
+func (o Options) withDefaults() Options {
+	if o.SecurityTypes == "" {
+		o.SecurityTypes = "None"
+	}
+	if o.Interface == "" {
+		o.Interface = "0.0.0.0"
+	}
+	return o
+}
+
 type Manager struct {
 	mu        sync.Mutex
 	sessions  map[string]*Session
 	freeSlots []int
+	opts      Options
 }
 
-func NewManager() *Manager {
+func NewManager(opts Options) *Manager {
 	slots := make([]int, maxSlots)
 	for i := range slots {
 		slots[i] = i
@@ -51,6 +71,7 @@ func NewManager() *Manager {
 	return &Manager{
 		sessions:  make(map[string]*Session),
 		freeSlots: slots,
+		opts:      opts.withDefaults(),
 	}
 }
 
@@ -68,19 +89,26 @@ func (m *Manager) Start(sessionID string) (*Session, error) {
 	noVNCPort := baseNoVNCPort + slot
 
 	// KasmVNC の Xvnc は X サーバー + VNC + Web を 1 プロセスで提供する。
-	// -SecurityTypes None -DisableBasicAuth -sslOnly 0 は内部ツール/コンテナ内
-	// localhost 前提の無認証・平文 ws 構成（Azure を HTTPS 越しに公開する段階で
-	// wss/認証の再検討が必要）。
-	xvnc := exec.Command("Xvnc", display,
+	// セキュリティ構成（SecurityTypes/BasicAuth/sslOnly/interface）は config 由来の
+	// Options で可変。既定は内部/コンテナ localhost 前提の無認証・平文 ws で、
+	// Azure 等へ HTTPS 公開する段階では env で締める（VNC_SECURITY_TYPES など）。
+	sslOnly := "0"
+	if m.opts.SSLOnly {
+		sslOnly = "1"
+	}
+	args := []string{display,
 		"-geometry", geometry,
 		"-depth", depth,
-		"-SecurityTypes", "None",
-		"-DisableBasicAuth",
-		"-sslOnly", "0",
+		"-SecurityTypes", m.opts.SecurityTypes,
+		"-sslOnly", sslOnly,
 		"-websocketPort", fmt.Sprintf("%d", noVNCPort),
 		"-httpd", httpdDir,
-		"-interface", "0.0.0.0",
-	)
+		"-interface", m.opts.Interface,
+	}
+	if m.opts.DisableBasicAuth {
+		args = append(args, "-DisableBasicAuth")
+	}
+	xvnc := exec.Command("Xvnc", args...)
 
 	if err := xvnc.Start(); err != nil {
 		m.releaseSlot(slot)
