@@ -45,9 +45,10 @@ func TestExecuteTest_TagRun_PassesCorrectArgs(t *testing.T) {
 	ex := executor.New(fake, "/tmp/tests")
 
 	run := domain.NewRun("smoke", "")
+	run.Files = []string{"login.spec.ts", "signup.spec.ts"}
 	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
 
-	want := []string{"playwright", "test", "--grep", "@smoke", "--reporter=line,html"}
+	want := []string{"playwright", "test", "tests/login.spec.ts", "tests/signup.spec.ts", "--reporter=line,html"}
 	if !slices.Equal(fake.lastOpts.Args, want) {
 		t.Errorf("Args = %v, want %v", fake.lastOpts.Args, want)
 	}
@@ -59,10 +60,11 @@ func TestExecuteTest_TraceEnabled_AddsTraceOn(t *testing.T) {
 	ex := executor.New(fake, "/tmp/tests")
 
 	run := domain.NewRun("smoke", "")
+	run.Files = []string{"login.spec.ts"}
 	run.Trace = true
 	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
 
-	want := []string{"playwright", "test", "--grep", "@smoke", "--reporter=line,html", "--trace", "on"}
+	want := []string{"playwright", "test", "tests/login.spec.ts", "--reporter=line,html", "--trace", "on"}
 	if !slices.Equal(fake.lastOpts.Args, want) {
 		t.Errorf("Args = %v, want %v", fake.lastOpts.Args, want)
 	}
@@ -74,6 +76,7 @@ func TestExecuteTest_TraceDisabled_OmitsTraceFlag(t *testing.T) {
 	ex := executor.New(fake, "/tmp/tests")
 
 	run := domain.NewRun("smoke", "")
+	run.Files = []string{"login.spec.ts"}
 	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
 
 	if slices.Contains(fake.lastOpts.Args, "--trace") {
@@ -121,6 +124,7 @@ func TestExecuteTest_OnTimeout_MarksRunFailed(t *testing.T) {
 	ex := executor.New(blockingRunner{}, "/tmp/tests")
 
 	run := domain.NewRun("smoke", "")
+	run.Files = []string{"login.spec.ts"}
 	rs := store.NewMemoryRunStore()
 	ex.ExecuteTest(run, rs, 10*time.Millisecond) // 非常に短いタイムアウト
 
@@ -134,6 +138,7 @@ func TestExecuteTest_OnRunnerError_MarksRunFailed(t *testing.T) {
 	ex := executor.New(errorRunner{}, "/tmp/tests")
 
 	run := domain.NewRun("smoke", "")
+	run.Files = []string{"login.spec.ts"}
 	rs := store.NewMemoryRunStore()
 	ex.ExecuteTest(run, rs, 5*time.Second)
 
@@ -147,6 +152,7 @@ func TestExecuteTest_OnSuccess_MarksRunDone(t *testing.T) {
 	ex := executor.New(&fakeRunner{}, "/tmp/tests") // fakeRunner は nil を返す
 
 	run := domain.NewRun("smoke", "")
+	run.Files = []string{"login.spec.ts"}
 	rs := store.NewMemoryRunStore()
 	ex.ExecuteTest(run, rs, 5*time.Second)
 

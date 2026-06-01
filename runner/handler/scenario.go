@@ -13,8 +13,12 @@ import (
 func (h *Handler) Scenarios(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
+		scenarios := domain.ListScenarios(h.cfg.TestsDir)
+		for i := range scenarios {
+			scenarios[i].Tags = h.TagStore.TagsForScenario(scenarios[i].Name)
+		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"scenarios": domain.ListScenarios(h.cfg.TestsDir)})
+		json.NewEncoder(w).Encode(map[string]any{"scenarios": scenarios})
 
 	case http.MethodDelete:
 		name := domain.SanitizeName(r.URL.Query().Get("name"))
@@ -27,6 +31,8 @@ func (h *Handler) Scenarios(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
+		// シナリオ削除に伴い、そのファイルへのタグ割当も取り除く。
+		h.TagStore.DropScenario(name)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 

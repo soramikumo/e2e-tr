@@ -142,13 +142,20 @@ func TestHandleTags(t *testing.T) {
 		t.Fatalf("Tags status = %d, want 200", w.Result().StatusCode)
 	}
 	var body struct {
-		Tags []string `json:"tags"`
+		Tags []struct {
+			Name  string `json:"name"`
+			Color string `json:"color"`
+		} `json:"tags"`
 	}
 	if err := json.NewDecoder(w.Result().Body).Decode(&body); err != nil {
 		t.Fatalf("decode error: %v", err)
 	}
 	if len(body.Tags) == 0 {
 		t.Error("expected at least one tag in response")
+	}
+	// 既存 spec の @tag がブートストラップで初期色付きタグになる。
+	if body.Tags[0].Color == "" {
+		t.Error("expected bootstrapped tag to have a color")
 	}
 }
 

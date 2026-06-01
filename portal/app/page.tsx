@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { TagModal, TagChip, TagDef, contrastText } from './TagModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
@@ -10,6 +11,7 @@ interface Scenario {
   name: string;
   modified: string;
   size: number;
+  tags?: string[];
 }
 
 interface LogLine {
@@ -38,11 +40,16 @@ const badgeLabel: Record<RunStatus, string> = {
 };
 
 export default function Home() {
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<TagDef[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [runs, setRuns] = useState<RunState[]>([]);
   const [tagTrace, setTagTrace] = useState(false);
   const [scenarioTrace, setScenarioTrace] = useState<Record<string, boolean>>({});
+  // タグ編集モーダルの対象シナリオ(null なら閉じている)。
+  const [modalScenario, setModalScenario] = useState<string | null>(null);
+
+  const tagByName = (name: string): TagDef =>
+    tags.find((t) => t.name === name) ?? { name, color: '#6e7781' };
 
   const fetchData = useCallback(() => {
     fetch(`${API}/api/tags`)
@@ -141,23 +148,34 @@ export default function Home() {
         <section>
           <div className="output-header">
             <h2 style={{ margin: 0 }}>タグで実行</h2>
+            <label className="trace-toggle">
+              <input
+                type="checkbox"
+                className="switch"
+                checked={tagTrace}
+                onChange={(e) => setTagTrace(e.target.checked)}
+                aria-label="トレースを保存"
+              />
+              トレースを保存
+            </label>
           </div>
           <div className="tags">
             {tags.map((tag) => (
               <button
-                key={tag}
-                className={`tag-button${runningLabels.has(`@${tag}`) ? ' active' : ''}`}
-                onClick={() => startRun(`@${tag}`, { tag }, tagTrace)}
-                disabled={runningLabels.has(`@${tag}`)}
+                key={tag.name}
+                className={`tag-run-button${runningLabels.has(`@${tag.name}`) ? ' active' : ''}`}
+                style={{ background: tag.color, color: contrastText(tag.color) }}
+                onClick={() => startRun(`@${tag.name}`, { tag: tag.name }, tagTrace)}
+                disabled={runningLabels.has(`@${tag.name}`)}
               >
-                @{tag}
+                @{tag.name}
               </button>
             ))}
           </div>
-          {tags.some((t) => latestRun(`@${t}`)) && (
+          {tags.some((t) => latestRun(`@${t.name}`)) && (
             <div className="run-list">
               {tags
-                .map((t) => latestRun(`@${t}`))
+                .map((t) => latestRun(`@${t.name}`))
                 .filter((r): r is RunState => !!r)
                 .map((run) => (
                   <div key={run.id}>{renderRunCard(run)}</div>
@@ -178,8 +196,20 @@ export default function Home() {
               return (
                 <div key={s.name} className="scenario-item">
                   <div className="scenario-row">
-                    <span className="scenario-name">{s.name}</span>
+                    <div className="scenario-meta">
+                      <span className="scenario-name">{s.name}</span>
+                      {(s.tags ?? []).length > 0 && (
+                        <div className="scenario-tags">
+                          {(s.tags ?? []).map((name) => (
+                            <TagChip key={name} tag={tagByName(name)} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div className="scenario-actions">
+                      <button className="tag-edit-btn" onClick={() => setModalScenario(s.name)}>
+                        🏷 タグ
+                      </button>
                       <label className="trace-toggle row-trace">
                         <input
                           type="checkbox"
@@ -213,6 +243,15 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      {modalScenario && (
+        <TagModal
+          scenario={modalScenario}
+          allTags={tags}
+          assigned={scenarios.find((s) => s.name === modalScenario)?.tags ?? []}
+          onClose={() => { setModalScenario(null); fetchData(); }}
+        />
+      )}
     </>
   );
 }

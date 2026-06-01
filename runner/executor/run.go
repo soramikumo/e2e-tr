@@ -16,16 +16,24 @@ func (e *Executor) ExecuteTest(run *domain.Run, rs store.RunStore, timeout time.
 	defer cancel()
 
 	var args []string
-	if run.File != "" {
-		file := domain.SanitizeName(run.File)
-		if !strings.HasSuffix(file, ".spec.ts") {
-			file += ".spec.ts"
+	switch {
+	case len(run.Files) > 0:
+		// タグ実行: 割当済みの複数シナリオをまとめて走らせる。
+		run.AddLog(fmt.Sprintf("[info] テスト開始: @%s (%d 件)", run.Tag, len(run.Files)))
+		args = []string{"playwright", "test"}
+		for _, f := range run.Files {
+			args = append(args, "tests/"+specFileName(f))
 		}
+		args = append(args, "--reporter=line,html")
+	case run.File != "":
+		file := specFileName(run.File)
 		run.AddLog(fmt.Sprintf("[info] テスト開始: %s", file))
 		args = []string{"playwright", "test", "tests/" + file, "--reporter=line,html"}
-	} else {
-		run.AddLog(fmt.Sprintf("[info] テスト開始: @%s", run.Tag))
-		args = []string{"playwright", "test", "--grep", "@" + run.Tag, "--reporter=line,html"}
+	default:
+		run.AddLog("[error] 実行対象がありません")
+		run.Finish(false)
+		rs.Save(run)
+		return
 	}
 	// trace を許可した実行では成功時も trace を保存する(config 既定の on-first-retry を上書き)。
 	if run.Trace {
@@ -55,6 +63,15 @@ func (e *Executor) ExecuteTest(run *domain.Run, rs store.RunStore, timeout time.
 		run.Finish(true)
 	}
 	rs.Save(run)
+}
+
+// specFileName はファイル名をサニタイズし、.spec.ts 拡張子を補完する。
+func specFileName(name string) string {
+	file := domain.SanitizeName(name)
+	if !strings.HasSuffix(file, ".spec.ts") {
+		file += ".spec.ts"
+	}
+	return file
 }
 
 // lineWriter buffers incoming bytes and calls fn for each complete line.

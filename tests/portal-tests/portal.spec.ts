@@ -84,10 +84,10 @@ test('テスト実行 ↔ シナリオ作成 を往復できる @smoke', async (
 // シナリオとタグが存在するとき「タグで実行」セクションが表示される @ui
 test('test execution page shows tag list when scenarios exist @ui', async ({ page }) => {
   await page.route('**/api/tags', route =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: ['smoke', 'regression'] }) })
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: [{ name: 'smoke', color: '#1f883d' }, { name: 'regression', color: '#1d76db' }] }) })
   );
   await page.route('**/api/scenarios', route =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ scenarios: [{ name: 'smoke.spec.ts', modified: new Date().toISOString(), size: 100 }] }) })
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ scenarios: [{ name: 'smoke.spec.ts', modified: new Date().toISOString(), size: 100, tags: [] }] }) })
   );
 
   await page.goto('/');
@@ -177,7 +177,7 @@ test('failed test shows failure status @ui', async ({ page }) => {
 // トレース保存トグルを ON にすると /api/run の body に trace:true が含まれる @ui
 test('trace toggle sends trace flag in run request @ui', async ({ page }) => {
   await page.route('**/api/tags', (route) =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: ['smoke'] }) })
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: [{ name: 'smoke', color: '#1f883d' }] }) })
   );
   await page.route('**/api/scenarios', (route) =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ scenarios: [] }) })
@@ -206,7 +206,7 @@ test('trace toggle sends trace flag in run request @ui', async ({ page }) => {
 // トグル OFF(既定)のときは trace:false で送られる @ui
 test('run without trace toggle omits trace @ui', async ({ page }) => {
   await page.route('**/api/tags', (route) =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: ['smoke'] }) })
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: [{ name: 'smoke', color: '#1f883d' }] }) })
   );
   await page.route('**/api/scenarios', (route) =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ scenarios: [] }) })
@@ -262,6 +262,80 @@ test('per-scenario trace checkbox sends trace for that scenario @ui', async ({ p
 
   await expect(page.getByText('成功')).toBeVisible({ timeout: 5000 });
   expect(sentTrace).toBe(true);
+});
+
+// ── タグモーダル ───────────────────────────────────────────────────
+
+// シナリオ行の「タグ」ボタンからモーダルを開き、タグを作成して割り当てる @ui
+test('tag modal creates a tag and assigns it to the scenario @ui', async ({ page }) => {
+  let created: { name?: string; color?: string } | undefined;
+  let assigned: { scenario?: string; tags?: string[] } | undefined;
+  const tagsState: { name: string; color: string }[] = [];
+
+  await page.route('**/api/tags', (route) => {
+    if (route.request().method() === 'POST') {
+      created = route.request().postDataJSON();
+      tagsState.push({ name: created!.name!, color: created!.color! });
+    }
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: tagsState }) });
+  });
+  await page.route('**/api/scenarios', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ scenarios: [{ name: 'login.spec.ts', modified: new Date().toISOString(), size: 10, tags: [] }] }),
+    })
+  );
+  await page.route('**/api/scenarios/tags', (route) => {
+    assigned = route.request().postDataJSON();
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: assigned!.tags }) });
+  });
+
+  await page.goto('/');
+  await page.locator('.scenario-row', { hasText: 'login.spec.ts' }).getByRole('button', { name: /タグ/ }).click();
+
+  await expect(page.getByText('新規作成')).toBeVisible();
+  await page.getByPlaceholder('タグ名').fill('smoke');
+  await page.getByRole('button', { name: '作成', exact: true }).click();
+
+  await expect.poll(() => created?.name).toBe('smoke');
+  await expect.poll(() => assigned?.tags).toContain('smoke');
+});
+
+// モーダルを開き直したとき既存割当が保持され、追加割当で前のタグが消えない @ui
+// (サーバを真実の源とする stateful モックで、再オープン→全置換 PUT のデータ損失を防ぐ)
+test('reopening tag modal preserves prior assignment @ui', async ({ page }) => {
+  const allTags = [
+    { name: 'smoke', color: '#1f883d' },
+    { name: 'critical', color: '#b60205' },
+  ];
+  let serverAssigned: string[] = ['smoke']; // 既に smoke 割当済みの状態から開始
+  let lastPut: string[] | undefined;
+
+  await page.route('**/api/tags', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: allTags }) })
+  );
+  await page.route('**/api/scenarios', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ scenarios: [{ name: 'login.spec.ts', modified: new Date().toISOString(), size: 10, tags: serverAssigned }] }),
+    })
+  );
+  await page.route('**/api/scenarios/tags', (route) => {
+    lastPut = (route.request().postDataJSON() as { tags: string[] }).tags;
+    serverAssigned = lastPut; // サーバ状態を更新(永続化を模倣)
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: lastPut }) });
+  });
+
+  await page.goto('/');
+  await page.locator('.scenario-row', { hasText: 'login.spec.ts' }).getByRole('button', { name: /タグ/ }).click();
+
+  // 既存割当 smoke がチェック済みで開く。
+  const smokeRow = page.locator('.tag-modal-row', { hasText: 'smoke' });
+  await expect(smokeRow.getByRole('checkbox')).toBeChecked();
+
+  // critical を追加 → smoke が消えず両方が送られる。
+  await page.locator('.tag-modal-row', { hasText: 'critical' }).getByRole('checkbox').check();
+  await expect.poll(() => lastPut).toEqual(['smoke', 'critical']);
 });
 
 // ── 並列実行 ───────────────────────────────────────────────────────

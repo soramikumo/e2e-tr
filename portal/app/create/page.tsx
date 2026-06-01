@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { TagModal, TagDef } from '../TagModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 const NOVNC_HOST = process.env.NEXT_PUBLIC_NOVNC_HOST ?? 'http://localhost';
@@ -24,7 +25,30 @@ export default function CreatePage() {
   const [message, setMessage] = useState('');
   const [savedFile, setSavedFile] = useState('');
   const [noVNCPort, setNoVNCPort] = useState<number | null>(null);
+  const [tagModalOpen, setTagModalOpen] = useState(false);
+  const [allTags, setAllTags] = useState<TagDef[]>([]);
+  const [assignedTags, setAssignedTags] = useState<string[]>([]);
   const router = useRouter();
+
+  // モーダルを開くたびに、サーバ上の最新の割当を取り直す。
+  // (固定の空配列で開くと、再オープン時に既存割当を取りこぼし PUT 全置換で消えるため)
+  const openTagModal = async () => {
+    try {
+      const [tagsRes, scenRes] = await Promise.all([
+        fetch(`${API}/api/tags`),
+        fetch(`${API}/api/scenarios`),
+      ]);
+      const tagsData = await tagsRes.json();
+      const scenData = await scenRes.json();
+      setAllTags(tagsData.tags ?? []);
+      const mine = (scenData.scenarios ?? []).find((s: { name: string }) => s.name === savedFile);
+      setAssignedTags(mine?.tags ?? []);
+    } catch {
+      setAllTags([]);
+      setAssignedTags([]);
+    }
+    setTagModalOpen(true);
+  };
 
   const startRecording = async () => {
     if (!isValidUrl(url)) return;
@@ -148,14 +172,26 @@ export default function CreatePage() {
               <p className="status-hint">保存先: tests/tests/{savedFile}</p>
             )}
           </div>
-          {state === 'done' && (
+          {state === 'done' && savedFile && (
             <div className="done-actions">
+              <button className="tag-edit-btn" onClick={openTagModal}>
+                🏷 タグを付ける
+              </button>
               <button className="tag-button" onClick={() => router.push('/')}>
                 テスト実行ページへ →
               </button>
             </div>
           )}
         </section>
+      )}
+
+      {tagModalOpen && savedFile && (
+        <TagModal
+          scenario={savedFile}
+          allTags={allTags}
+          assigned={assignedTags}
+          onClose={() => setTagModalOpen(false)}
+        />
       )}
 
       <section>
