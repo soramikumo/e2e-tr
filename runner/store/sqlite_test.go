@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -24,11 +25,11 @@ func TestSaveGet_Active(t *testing.T) {
 	s := newStore(t)
 
 	run := domain.NewRun("tag1", "scenario.yaml")
-	if err := s.Save(run); err != nil {
+	if err := s.Save(context.Background(), run); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
-	got, ok := s.Get(run.ID)
+	got, ok := s.Get(context.Background(), run.ID)
 	if !ok {
 		t.Fatal("Get returned false for active run")
 	}
@@ -55,7 +56,7 @@ func TestSaveGet_FinishedPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteRunStore (s1): %v", err)
 	}
-	if err := s1.Save(run); err != nil {
+	if err := s1.Save(context.Background(), run); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -64,7 +65,7 @@ func TestSaveGet_FinishedPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteRunStore (s2): %v", err)
 	}
-	got, ok := s2.Get(run.ID)
+	got, ok := s2.Get(context.Background(), run.ID)
 	if !ok {
 		t.Fatal("Get returned false after restart — DB persistence failed")
 	}
@@ -87,7 +88,7 @@ func TestSaveGet_FinishedPersisted(t *testing.T) {
 func TestGet_NotFound(t *testing.T) {
 	s := newStore(t)
 
-	_, ok := s.Get("nonexistent-id")
+	_, ok := s.Get(context.Background(), "nonexistent-id")
 	if ok {
 		t.Fatal("Get returned true for nonexistent ID")
 	}
@@ -105,7 +106,7 @@ func TestSave_RunningNotPersistedToDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteRunStore (s1): %v", err)
 	}
-	if err := s1.Save(run); err != nil {
+	if err := s1.Save(context.Background(), run); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -114,7 +115,7 @@ func TestSave_RunningNotPersistedToDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteRunStore (s2): %v", err)
 	}
-	_, ok := s2.Get(run.ID)
+	_, ok := s2.Get(context.Background(), run.ID)
 	if ok {
 		t.Fatal("running run should NOT be persisted to DB — only in memory")
 	}

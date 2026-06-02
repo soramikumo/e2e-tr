@@ -46,7 +46,7 @@ func TestExecuteTest_TagRun_PassesCorrectArgs(t *testing.T) {
 
 	run := domain.NewRun("smoke", "")
 	run.Files = []string{"login.spec.ts", "signup.spec.ts"}
-	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
+	ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
 
 	want := []string{"playwright", "test", "tests/login.spec.ts", "tests/signup.spec.ts", "--reporter=line,html"}
 	if !slices.Equal(fake.lastOpts.Args, want) {
@@ -62,7 +62,7 @@ func TestExecuteTest_TraceEnabled_AddsTraceOn(t *testing.T) {
 	run := domain.NewRun("smoke", "")
 	run.Files = []string{"login.spec.ts"}
 	run.Trace = true
-	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
+	ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
 
 	want := []string{"playwright", "test", "tests/login.spec.ts", "--reporter=line,html", "--trace", "on"}
 	if !slices.Equal(fake.lastOpts.Args, want) {
@@ -77,7 +77,7 @@ func TestExecuteTest_TraceDisabled_OmitsTraceFlag(t *testing.T) {
 
 	run := domain.NewRun("smoke", "")
 	run.Files = []string{"login.spec.ts"}
-	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
+	ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
 
 	if slices.Contains(fake.lastOpts.Args, "--trace") {
 		t.Errorf("Args = %v, must not contain --trace when Trace is false", fake.lastOpts.Args)
@@ -90,7 +90,7 @@ func TestExecuteTest_FileRun_AddsSpecSuffix(t *testing.T) {
 
 	// ファイル名に .spec.ts がない場合、自動で付与されるはず
 	run := domain.NewRun("", "login")
-	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
+	ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
 
 	found := false
 	for _, arg := range fake.lastOpts.Args {
@@ -109,7 +109,7 @@ func TestExecuteTest_FileAlreadyHasSpecTsSuffix_NotDuplicated(t *testing.T) {
 	ex := executor.New(fake, "/tmp/tests")
 
 	run := domain.NewRun("", "login.spec.ts")
-	ex.ExecuteTest(run, store.NewMemoryRunStore(), 5*time.Second)
+	ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
 
 	if slices.Contains(fake.lastOpts.Args, "tests/login.spec.ts.spec.ts") {
 		t.Errorf("Args = %v, .spec.ts was duplicated", fake.lastOpts.Args)
@@ -126,7 +126,7 @@ func TestExecuteTest_OnTimeout_MarksRunFailed(t *testing.T) {
 	run := domain.NewRun("smoke", "")
 	run.Files = []string{"login.spec.ts"}
 	rs := store.NewMemoryRunStore()
-	ex.ExecuteTest(run, rs, 10*time.Millisecond) // 非常に短いタイムアウト
+	ex.ExecuteTest(context.Background(), run, rs, 10*time.Millisecond) // 非常に短いタイムアウト
 
 	if run.GetStatus() != domain.StatusFailed {
 		t.Errorf("Status = %q, want %q", run.GetStatus(), domain.StatusFailed)
@@ -140,7 +140,7 @@ func TestExecuteTest_OnRunnerError_MarksRunFailed(t *testing.T) {
 	run := domain.NewRun("smoke", "")
 	run.Files = []string{"login.spec.ts"}
 	rs := store.NewMemoryRunStore()
-	ex.ExecuteTest(run, rs, 5*time.Second)
+	ex.ExecuteTest(context.Background(), run, rs, 5*time.Second)
 
 	if run.GetStatus() != domain.StatusFailed {
 		t.Errorf("Status = %q, want %q", run.GetStatus(), domain.StatusFailed)
@@ -154,7 +154,7 @@ func TestExecuteTest_OnSuccess_MarksRunDone(t *testing.T) {
 	run := domain.NewRun("smoke", "")
 	run.Files = []string{"login.spec.ts"}
 	rs := store.NewMemoryRunStore()
-	ex.ExecuteTest(run, rs, 5*time.Second)
+	ex.ExecuteTest(context.Background(), run, rs, 5*time.Second)
 
 	if run.GetStatus() != domain.StatusDone {
 		t.Errorf("Status = %q, want %q", run.GetStatus(), domain.StatusDone)
