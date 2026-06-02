@@ -28,14 +28,7 @@ func main() {
 	h := handler.New(cfg, runStore, store.NewMemoryCodegenStore(), vm)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/tags", handler.CORS(h.Tags))
-	mux.HandleFunc("/api/run", handler.CORS(h.Run))
-	mux.HandleFunc("/api/stream", handler.CORS(h.Stream))
-	mux.HandleFunc("/api/codegen/start", handler.CORS(h.CodegenStart))
-	mux.HandleFunc("/api/codegen/stream", handler.CORS(h.CodegenStream))
-	mux.HandleFunc("/api/codegen/code", handler.CORS(h.CodegenCode))
-	mux.HandleFunc("/api/scenarios", handler.CORS(h.Scenarios))
-	mux.HandleFunc("/api/scenarios/tags", handler.CORS(h.ScenarioTags))
+	h.Register(mux)
 
 	reportDir := filepath.Join(cfg.TestsDir, "playwright-report")
 	mux.Handle("/report/", http.StripPrefix("/report/", http.FileServer(http.Dir(reportDir))))
