@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -36,15 +37,21 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 		run.Files = files
 	}
 	run.Trace = body.Trace
-	h.RunStore.Save(run)
+	h.RunStore.Save(r.Context(), run)
+
+	// 実行はリクエストを超えて生きる goroutine で行う。r.Context() はレスポンス
+	// 返却時にキャンセルされるため、そのまま渡すと実行途中で打ち切られる。
+	// WithoutCancel で「キャンセルは切り離すが、載った値(owner_id 等)は残す」
+	// context を作って渡す。
+	bgCtx := context.WithoutCancel(r.Context())
 	select {
 	case h.sem <- struct{}{}:
 		go func() {
 			defer func() { <-h.sem }()
-			h.Executor.ExecuteTest(run, h.RunStore, h.cfg.RunTimeout)
+			h.Executor.ExecuteTest(bgCtx, run, h.RunStore, h.cfg.RunTimeout)
 		}()
 	default:
-		h.RunStore.Delete(run.ID)
+		h.RunStore.Delete(r.Context(), run.ID)
 		http.Error(w, "too many concurrent runs", http.StatusTooManyRequests)
 		return
 	}
@@ -54,7 +61,7 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
-	run, ok := h.RunStore.Get(r.URL.Query().Get("id"))
+	run, ok := h.RunStore.Get(r.Context(), r.URL.Query().Get("id"))
 	if !ok {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

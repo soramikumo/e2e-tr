@@ -11,8 +11,13 @@ import (
 	"e2e-runner/store"
 )
 
-func (e *Executor) ExecuteTest(run *domain.Run, rs store.RunStore, timeout time.Duration) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+// ExecuteTest はテストを実行し結果を rs に保存する。reqCtx はリクエスト由来の
+// context(マルチテナント実装では owner_id を載せている)。コマンドのタイムアウトは
+// reqCtx から派生させ、値(owner_id)を保ちつつ実行時間だけ制限する。
+// 保存(rs.Save)には reqCtx を使う ── タイムアウトした ctx で保存すると、失敗の
+// 記録自体がキャンセルされてしまうため。
+func (e *Executor) ExecuteTest(reqCtx context.Context, run *domain.Run, rs store.RunStore, timeout time.Duration) {
+	ctx, cancel := context.WithTimeout(reqCtx, timeout)
 	defer cancel()
 
 	var args []string
@@ -32,7 +37,7 @@ func (e *Executor) ExecuteTest(run *domain.Run, rs store.RunStore, timeout time.
 	default:
 		run.AddLog("[error] 実行対象がありません")
 		run.Finish(false)
-		rs.Save(run)
+		rs.Save(reqCtx, run)
 		return
 	}
 	// trace を許可した実行では成功時も trace を保存する(config 既定の on-first-retry を上書き)。
@@ -62,7 +67,7 @@ func (e *Executor) ExecuteTest(run *domain.Run, rs store.RunStore, timeout time.
 		run.AddLog("[info] テスト終了: 成功")
 		run.Finish(true)
 	}
-	rs.Save(run)
+	rs.Save(reqCtx, run)
 }
 
 // specFileName はファイル名をサニタイズし、.spec.ts 拡張子を補完する。

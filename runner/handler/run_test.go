@@ -55,7 +55,7 @@ func TestHandleRun_WithTag_ReturnsRunID(t *testing.T) {
 	if body.ID == "" {
 		t.Error("response id is empty")
 	}
-	if _, ok := h.RunStore.Get(body.ID); !ok {
+	if _, ok := h.RunStore.Get(context.Background(), body.ID); !ok {
 		t.Errorf("run %q not found in store", body.ID)
 	}
 }
@@ -76,7 +76,7 @@ func TestHandleRun_WithTrace_SetsTraceOnRun(t *testing.T) {
 	if err := json.NewDecoder(w.Result().Body).Decode(&body); err != nil {
 		t.Fatalf("decode error: %v", err)
 	}
-	run, ok := h.RunStore.Get(body.ID)
+	run, ok := h.RunStore.Get(context.Background(), body.ID)
 	if !ok {
 		t.Fatalf("run %q not found in store", body.ID)
 	}

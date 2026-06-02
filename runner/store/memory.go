@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"sync"
 
 	"e2e-runner/domain"
@@ -15,21 +16,22 @@ func NewMemoryRunStore() *MemoryRunStore {
 	return &MemoryRunStore{runs: map[string]*domain.Run{}}
 }
 
-func (s *MemoryRunStore) Save(run *domain.Run) error {
+// ローカル実装は単一ユーザー前提なので ctx は使わない(_ で受ける)。
+func (s *MemoryRunStore) Save(_ context.Context, run *domain.Run) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.runs[run.ID] = run
 	return nil
 }
 
-func (s *MemoryRunStore) Get(id string) (*domain.Run, bool) {
+func (s *MemoryRunStore) Get(_ context.Context, id string) (*domain.Run, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	r, ok := s.runs[id]
 	return r, ok
 }
 
-func (s *MemoryRunStore) Delete(id string) error {
+func (s *MemoryRunStore) Delete(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.runs, id)

@@ -80,7 +80,7 @@ func TestStream_FinishedRun_LogsThenDone(t *testing.T) {
 	run.AddLog("line one")
 	run.AddLog("line two")
 	run.Finish(true)
-	h.RunStore.Save(run)
+	h.RunStore.Save(context.Background(), run)
 
 	// Serve via a real HTTP server so SSE flushing works.
 	srv := httptest.NewServer(http.HandlerFunc(h.Stream))
@@ -122,7 +122,7 @@ func TestStream_ClientDisconnect_NoGoroutineLeak(t *testing.T) {
 
 	// A run that is still running (never finished) — handler will block on select.
 	run := domain.NewRun("leak-test", "")
-	h.RunStore.Save(run)
+	h.RunStore.Save(context.Background(), run)
 
 	srv := httptest.NewServer(http.HandlerFunc(h.Stream))
 	defer func() {

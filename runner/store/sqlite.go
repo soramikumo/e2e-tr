@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -39,7 +40,7 @@ func NewSQLiteRunStore(dbPath string) (*SQLiteRunStore, error) {
 }
 
 // Save はRunをメモリに登録し、完了済みの場合はSQLiteにも保存する。
-func (s *SQLiteRunStore) Save(run *domain.Run) error {
+func (s *SQLiteRunStore) Save(ctx context.Context, run *domain.Run) error {
 	s.mu.Lock()
 	s.active[run.ID] = run
 	s.mu.Unlock()
@@ -50,38 +51,38 @@ func (s *SQLiteRunStore) Save(run *domain.Run) error {
 
 	logsJSON, _ := json.Marshal(run.Logs())
 
-	_, err := s.db.Exec(
+	_, err := s.db.ExecContext(ctx,
 		`INSERT OR REPLACE INTO runs (id, tag, file, status, logs, started_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		run.ID, run.Tag, run.File, string(run.GetStatus()), string(logsJSON), run.StartedAt,
 	)
 	return err
 }
 
-func (s *SQLiteRunStore) Delete(id string) error {
+func (s *SQLiteRunStore) Delete(ctx context.Context, id string) error {
 	s.mu.Lock()
 	delete(s.active, id)
 	s.mu.Unlock()
-	_, err := s.db.Exec(`DELETE FROM runs WHERE id = ?`, id)
+	_, err := s.db.ExecContext(ctx, `DELETE FROM runs WHERE id = ?`, id)
 	return err
 }
 
-func (s *SQLiteRunStore) Get(id string) (*domain.Run, bool) {
+func (s *SQLiteRunStore) Get(ctx context.Context, id string) (*domain.Run, bool) {
 	s.mu.RLock()
 	r, ok := s.active[id]
 	s.mu.RUnlock()
 	if ok {
 		return r, true
 	}
-	return s.getFromDB(id)
+	return s.getFromDB(ctx, id)
 }
 
-func (s *SQLiteRunStore) getFromDB(id string) (*domain.Run, bool) {
+func (s *SQLiteRunStore) getFromDB(ctx context.Context, id string) (*domain.Run, bool) {
 	var (
 		tag, file, status string
 		logsJSON          string
 		startedAt         time.Time
 	)
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(ctx,
 		`SELECT tag, file, status, logs, started_at FROM runs WHERE id = ?`, id,
 	).Scan(&tag, &file, &status, &logsJSON, &startedAt)
 	if err != nil {
