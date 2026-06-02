@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { TagModal, TagChip, TagDef, contrastText } from './TagModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
@@ -50,6 +50,10 @@ export default function Home() {
   // インライン名前編集の対象シナリオ名(null なら非編集)と入力中ドラフト。
   const [editingName, setEditingName] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
+  // Enter/Escape で編集を閉じると input がアンマウントされ、ブラウザが blur を
+  // 発火して onBlur が再度走る。キー操作で処理済みのときは onBlur を 1 回だけ
+  // 握り潰すためのフラグ（state だと非同期で間に合わないため ref を使う）。
+  const renameHandledRef = useRef(false);
 
   const tagByName = (name: string): TagDef =>
     tags.find((t) => t.name === name) ?? { name, color: '#6e7781' };
@@ -228,10 +232,22 @@ export default function Home() {
                           autoFocus
                           value={draftName}
                           onChange={(e) => setDraftName(e.target.value)}
-                          onBlur={() => commitRename(s.name)}
+                          onBlur={() => {
+                            // キー操作で処理済みなら、アンマウント由来の blur は無視。
+                            if (renameHandledRef.current) {
+                              renameHandledRef.current = false;
+                              return;
+                            }
+                            commitRename(s.name);
+                          }}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') commitRename(s.name);
-                            else if (e.key === 'Escape') setEditingName(null);
+                            if (e.key === 'Enter') {
+                              renameHandledRef.current = true;
+                              commitRename(s.name);
+                            } else if (e.key === 'Escape') {
+                              renameHandledRef.current = true;
+                              setEditingName(null);
+                            }
                           }}
                         />
                       ) : (
@@ -239,6 +255,7 @@ export default function Home() {
                           className="scenario-name"
                           title="ダブルクリックで名前を変更"
                           onDoubleClick={() => {
+                            renameHandledRef.current = false;
                             setEditingName(s.name);
                             setDraftName(s.name.replace(/\.spec\.ts$/i, ''));
                           }}

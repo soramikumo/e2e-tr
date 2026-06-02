@@ -82,10 +82,13 @@ func (s *TagStore) RenameScenario(oldName, newName string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	meta := domain.LoadTagMeta(s.testsDir)
-	if names, ok := meta.Assignments[oldName]; ok {
-		meta.Assignments[newName] = names
-		delete(meta.Assignments, oldName)
+	names, ok := meta.Assignments[oldName]
+	if !ok {
+		// 旧名に割当が無ければ書き込み不要（無駄なディスク I/O を避ける）。
+		return nil
 	}
+	meta.Assignments[newName] = names
+	delete(meta.Assignments, oldName)
 	return domain.SaveTagMeta(s.testsDir, meta)
 }
 

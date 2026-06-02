@@ -25,8 +25,9 @@ func (h *Handler) Scenarios(w http.ResponseWriter, r *http.Request) {
 		newName := domain.SanitizeName(r.URL.Query().Get("to"))
 
 		// 検証ガード（コストの軽い順に並べ、ディスク I/O 前に弾けるものは弾く）。
-		// 1) 拡張子強制 — DELETE と同じく .spec.ts のみ許可する。
-		if !strings.HasSuffix(newName, ".spec.ts") {
+		// 1) 拡張子強制 — DELETE と同じく .spec.ts のみ許可する。oldName も検証し、
+		//    フロントを介さない直叩きで非 spec ファイルを rename されるのを防ぐ。
+		if !strings.HasSuffix(oldName, ".spec.ts") || !strings.HasSuffix(newName, ".spec.ts") {
 			http.Error(w, "invalid name", http.StatusBadRequest)
 			return
 		}
