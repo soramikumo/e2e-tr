@@ -59,6 +59,14 @@ func (e *Executor) ExecuteCodegen(c *domain.Codegen, cs store.CodegenStore, vncM
 		return
 	}
 
+	// 録画した spec の最初の goto を相対化し、baseURL 上書きで環境を切り替えられる
+	// 状態で保存する。失敗しても記録自体は成功扱い(相対化は付加価値)なので握りつぶす。
+	if b, rerr := os.ReadFile(outputFile); rerr == nil {
+		if rel := domain.RelativizeFirstGoto(string(b)); rel != string(b) {
+			_ = os.WriteFile(outputFile, []byte(rel), 0o644)
+		}
+	}
+
 	c.Finish(filepath.Base(outputFile), nil)
 	cs.Save(c)
 }

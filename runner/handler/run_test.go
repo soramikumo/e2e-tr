@@ -143,3 +143,44 @@ func TestHandleRun_ConcurrencyLimitReached_Returns429(t *testing.T) {
 		t.Errorf("status = %d, want 429", w.Result().StatusCode)
 	}
 }
+
+// baseURL に不正値を渡すと 400 で弾かれること(env へそのまま流さない)。
+func TestHandleRun_InvalidBaseURL_Rejected(t *testing.T) {
+	h := newHandlerWithFakeRunner(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/run",
+		strings.NewReader(`{"file":"a.spec.ts","baseURL":"javascript:alert(1)"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.Run(w, req)
+
+	if w.Result().StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Result().StatusCode)
+	}
+}
+
+// baseURL に http/https を渡すと受理され、Run に保持されること。
+func TestHandleRun_ValidBaseURL_Accepted(t *testing.T) {
+	h := newHandlerWithFakeRunner(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/run",
+		strings.NewReader(`{"file":"a.spec.ts","baseURL":"https://staging.example.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.Run(w, req)
+
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Result().StatusCode)
+	}
+	var body struct {
+		ID string `json:"id"`
+	}
+	json.NewDecoder(w.Result().Body).Decode(&body)
+	run, ok := h.RunStore.Get(context.Background(), body.ID)
+	if !ok {
+		t.Fatal("run not found")
+	}
+	if run.BaseURL != "https://staging.example.com" {
+		t.Errorf("BaseURL = %q, want staging", run.BaseURL)
+	}
+}

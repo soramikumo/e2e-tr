@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"e2e-runner/domain"
 )
@@ -14,9 +15,10 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Tag   string `json:"tag"`
-		File  string `json:"file"`
-		Trace bool   `json:"trace"`
+		Tag     string `json:"tag"`
+		File    string `json:"file"`
+		Trace   bool   `json:"trace"`
+		BaseURL string `json:"baseURL"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
@@ -26,7 +28,17 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tag or file required", http.StatusBadRequest)
 		return
 	}
+	// baseURL は任意。指定時のみ http/https を検証する(不正値をそのまま env に
+	// 流すと実行が黙って意図しない先を叩くため、入口で弾く)。
+	if body.BaseURL != "" {
+		u, err := url.ParseRequestURI(body.BaseURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			http.Error(w, "invalid baseURL", http.StatusBadRequest)
+			return
+		}
+	}
 	run := domain.NewRun(body.Tag, body.File)
+	run.BaseURL = body.BaseURL
 	// タグ実行はメタデータ主導: そのタグが貼られたシナリオ群を解決して複数ファイルを走らせる。
 	if body.Tag != "" {
 		files := h.TagStore.ScenariosForTag(body.Tag)
