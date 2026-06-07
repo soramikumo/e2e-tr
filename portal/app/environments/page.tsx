@@ -113,14 +113,13 @@ export default function EnvironmentsPage() {
 
   return (
     <>
-      <div className="env-header">
-        <h1 className="page-title">環境（Environments）</h1>
+      <header className="page-head">
+        <div>
+          <h1 className="page-title">Environments</h1>
+          <p className="page-sub">実行先(dev/staging/prod)を名前付きで保存。テスト実行画面から選択して切替。</p>
+        </div>
         <button className="record-btn" onClick={openCreate}>＋ 新規追加</button>
-      </div>
-
-      <p className="env-hint">
-        実行先の URL と認証情報を名前付きで保存します。テスト実行画面でドロップダウンから選択できます。
-      </p>
+      </header>
 
       {envs.length === 0 ? (
         <p className="empty">環境が登録されていません。「新規追加」から作成してください。</p>
