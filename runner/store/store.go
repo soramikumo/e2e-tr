@@ -22,3 +22,16 @@ type CodegenStore interface {
 	Save(c *domain.Codegen) error
 	Get(id string) (*domain.Codegen, bool)
 }
+
+// EnvironmentStore は「実行先」設定の永続化を抽象化する。
+//
+// ctx は OSS のローカル実装(FileEnvironmentStore)では使わないが、cloud 実装
+// (PostgresEnvironmentStore)が owner_id を取り出して WHERE 句に積むための
+// 継ぎ目として最初から引数に持たせる(saas-architecture-decisions に従う)。
+type EnvironmentStore interface {
+	List(ctx context.Context) ([]domain.Environment, error)
+	Get(ctx context.Context, id string) (*domain.Environment, bool)
+	Create(ctx context.Context, env *domain.Environment) error
+	Update(ctx context.Context, env *domain.Environment) error
+	Delete(ctx context.Context, id string) error
+}

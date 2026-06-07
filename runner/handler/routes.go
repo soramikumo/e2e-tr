@@ -50,6 +50,7 @@ func (h *Handler) Register(mux *http.ServeMux, mw ...Middleware) {
 	mux.HandleFunc("/api/scenarios", wrap(h.Scenarios))
 	mux.HandleFunc("/api/scenarios/code", wrap(h.ScenarioCode))
 	mux.HandleFunc("/api/scenarios/tags", wrap(h.ScenarioTags))
+	mux.HandleFunc("/api/environments", wrap(h.Environments))
 }
 
 // chain は fn を mw... で包んだ http.HandlerFunc を返す。

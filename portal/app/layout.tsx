@@ -15,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="nav-links">
             <Link href="/" className="nav-link">テスト実行</Link>
             <Link href="/create" className="nav-link">シナリオ作成</Link>
+            <Link href="/environments" className="nav-link">環境</Link>
           </div>
         </nav>
         <main className="container">{children}</main>
