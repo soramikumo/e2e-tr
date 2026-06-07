@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TagModal, TagChip, TagDef, contrastText } from './TagModal';
+import { CodeEditorModal } from './CodeEditorModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
@@ -47,6 +48,10 @@ export default function Home() {
   const [scenarioTrace, setScenarioTrace] = useState<Record<string, boolean>>({});
   // タグ編集モーダルの対象シナリオ(null なら閉じている)。
   const [modalScenario, setModalScenario] = useState<string | null>(null);
+  // ソース編集モーダルの対象シナリオ(null なら閉じている)。
+  const [editCodeScenario, setEditCodeScenario] = useState<string | null>(null);
+  // 実行先の baseURL 上書き(空なら spec/config 既定の URL を使う)。dev/prod 切替用。
+  const [baseURL, setBaseURL] = useState('');
   // インライン名前編集の対象シナリオ名(null なら非編集)と入力中ドラフト。
   const [editingName, setEditingName] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -80,7 +85,7 @@ export default function Home() {
       const res = await fetch(`${API}/api/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body, trace }),
+        body: JSON.stringify({ ...body, trace, baseURL: baseURL.trim() || undefined }),
       });
       if (!res.ok) {
         const msg = (await res.text()).trim();
@@ -145,6 +150,11 @@ export default function Home() {
     fetchData();
   };
 
+  // baseURL は任意。入力があるときだけ http/https を検証する(空は既定使用で valid)。
+  const baseURLInvalid =
+    baseURL.trim() !== '' &&
+    !/^https?:\/\//i.test(baseURL.trim());
+
   // 同じ対象が実行中のあいだは、その実行ボタンだけ無効化して二重起動を防ぐ。
   const runningLabels = new Set(runs.filter((r) => r.status === 'running').map((r) => r.label));
   // ラベルごとの最新 run（runs は先頭が新しい）。
@@ -173,6 +183,18 @@ export default function Home() {
     <>
       <h1 className="page-title">テスト実行</h1>
 
+      <div className="baseurl-bar">
+        <label htmlFor="baseurl">実行先URL（任意・上書き）</label>
+        <input
+          id="baseurl"
+          className={`baseurl-input${baseURLInvalid ? ' invalid' : ''}`}
+          type="url"
+          placeholder="https://staging.example.com（空なら録画時の環境）"
+          value={baseURL}
+          onChange={(e) => setBaseURL(e.target.value)}
+        />
+      </div>
+
       {tags.length > 0 && (
         <section>
           <div className="output-header">
@@ -195,7 +217,7 @@ export default function Home() {
                 className={`tag-run-button${runningLabels.has(`@${tag.name}`) ? ' active' : ''}`}
                 style={{ background: tag.color, color: contrastText(tag.color) }}
                 onClick={() => startRun(`@${tag.name}`, { tag: tag.name }, tagTrace)}
-                disabled={runningLabels.has(`@${tag.name}`)}
+                disabled={runningLabels.has(`@${tag.name}`) || baseURLInvalid}
               >
                 @{tag.name}
               </button>
@@ -275,6 +297,9 @@ export default function Home() {
                       <button className="tag-edit-btn" onClick={() => setModalScenario(s.name)}>
                         🏷 タグ
                       </button>
+                      <button className="tag-edit-btn" onClick={() => setEditCodeScenario(s.name)}>
+                        ✎ 編集
+                      </button>
                       <label className="trace-toggle row-trace">
                         <input
                           type="checkbox"
@@ -288,7 +313,7 @@ export default function Home() {
                       <button
                         className="run-btn"
                         onClick={() => startRun(s.name, { file: s.name }, !!scenarioTrace[s.name])}
-                        disabled={runningLabels.has(s.name)}
+                        disabled={runningLabels.has(s.name) || baseURLInvalid}
                       >
                         実行
                       </button>
@@ -315,6 +340,13 @@ export default function Home() {
           allTags={tags}
           assigned={scenarios.find((s) => s.name === modalScenario)?.tags ?? []}
           onClose={() => { setModalScenario(null); fetchData(); }}
+        />
+      )}
+
+      {editCodeScenario && (
+        <CodeEditorModal
+          scenario={editCodeScenario}
+          onClose={() => { setEditCodeScenario(null); fetchData(); }}
         />
       )}
     </>

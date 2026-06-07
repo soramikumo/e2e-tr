@@ -20,8 +20,9 @@ type Run struct {
 	ID        string    `json:"id"`
 	Tag       string    `json:"tag,omitempty"`
 	File      string    `json:"file,omitempty"`
-	Files     []string  `json:"files,omitempty"` // タグ実行で解決した複数シナリオ
-	Trace     bool      `json:"trace,omitempty"` // true なら成功時も trace を保存(--trace on)
+	Files     []string  `json:"files,omitempty"`    // タグ実行で解決した複数シナリオ
+	Trace     bool      `json:"trace,omitempty"`    // true なら成功時も trace を保存(--trace on)
+	BaseURL   string    `json:"base_url,omitempty"` // 非空なら PLAYWRIGHT_BASE_URL として実行時に注入(dev/prod 切替)
 	Status    RunStatus `json:"status"`
 	StartedAt time.Time `json:"started_at"`
 

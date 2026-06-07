@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -44,12 +45,21 @@ func (e *Executor) ExecuteTest(reqCtx context.Context, run *domain.Run, rs store
 	if run.Trace {
 		args = append(args, "--trace", "on")
 	}
+	// baseURL を指定した実行では PLAYWRIGHT_BASE_URL を注入し、playwright.config が
+	// これを読む(相対 goto の spec が dev/prod/blue-green で切り替わる)。空なら env は
+	// 親から継承させ、config 既定の baseURL がそのまま使われる。
+	var env []string
+	if run.BaseURL != "" {
+		run.AddLog("[info] baseURL: " + run.BaseURL)
+		env = append(os.Environ(), "PLAYWRIGHT_BASE_URL="+run.BaseURL)
+	}
 	stdout := newLineWriter(func(line string) { run.AddLog(line) })
 	stderr := newLineWriter(func(line string) { run.AddLog("[stderr] " + line) })
 	err := e.Runner.Run(ctx, RunOptions{
 		Dir:    e.TestsDir,
 		Name:   "npx",
 		Args:   args,
+		Env:    env,
 		Stdout: stdout,
 		Stderr: stderr,
 	})

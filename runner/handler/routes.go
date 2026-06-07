@@ -48,6 +48,7 @@ func (h *Handler) Register(mux *http.ServeMux, mw ...Middleware) {
 	mux.HandleFunc("/api/codegen/stream", wrap(h.CodegenStream))
 	mux.HandleFunc("/api/codegen/code", wrap(h.CodegenCode))
 	mux.HandleFunc("/api/scenarios", wrap(h.Scenarios))
+	mux.HandleFunc("/api/scenarios/code", wrap(h.ScenarioCode))
 	mux.HandleFunc("/api/scenarios/tags", wrap(h.ScenarioTags))
 }
 
