@@ -15,10 +15,11 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Tag     string `json:"tag"`
-		File    string `json:"file"`
-		Trace   bool   `json:"trace"`
-		BaseURL string `json:"baseURL"`
+		Tag           string `json:"tag"`
+		File          string `json:"file"`
+		Trace         bool   `json:"trace"`
+		BaseURL       string `json:"baseURL"`       // 後方互換: 直入力(PR #81 の経路)
+		EnvironmentID string `json:"environmentId"` // 推奨: Environment を id で参照
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
@@ -28,17 +29,30 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tag or file required", http.StatusBadRequest)
 		return
 	}
-	// baseURL は任意。指定時のみ http/https を検証する(不正値をそのまま env に
-	// 流すと実行が黙って意図しない先を叩くため、入口で弾く)。
-	if body.BaseURL != "" {
+	run := domain.NewRun(body.Tag, body.File)
+	// environmentId 指定があれば優先(直入力 baseURL より強い)。Environment は
+	// 名前付き resource として認証情報も束ねる ── 解決して run に埋めることで、
+	// 以降のレイヤは「Environment という概念」を知らずに済む(executor は env と
+	// 認証情報をそのまま注入するだけ)。
+	if body.EnvironmentID != "" {
+		env, ok := h.EnvStore.Get(r.Context(), body.EnvironmentID)
+		if !ok {
+			http.Error(w, "environment not found", http.StatusBadRequest)
+			return
+		}
+		run.BaseURL = env.BaseURL
+		run.AuthUser = env.BasicAuthUser
+		run.AuthPass = env.BasicAuthPass
+	} else if body.BaseURL != "" {
+		// 後方互換経路: 指定時のみ http/https を検証する(不正値をそのまま env に
+		// 流すと実行が黙って意図しない先を叩くため、入口で弾く)。
 		u, err := url.ParseRequestURI(body.BaseURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 			http.Error(w, "invalid baseURL", http.StatusBadRequest)
 			return
 		}
+		run.BaseURL = body.BaseURL
 	}
-	run := domain.NewRun(body.Tag, body.File)
-	run.BaseURL = body.BaseURL
 	// タグ実行はメタデータ主導: そのタグが貼られたシナリオ群を解決して複数ファイルを走らせる。
 	if body.Tag != "" {
 		files := h.TagStore.ScenariosForTag(body.Tag)

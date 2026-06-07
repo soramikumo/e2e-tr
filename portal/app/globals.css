@@ -786,3 +786,94 @@ h2 {
 .baseurl-input.invalid {
   border-color: #b91c1c;
 }
+
+.env-manage-link {
+  font-size: 0.78rem;
+  color: #93c5fd;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.env-manage-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Environments page ── */
+.env-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.env-hint {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.env-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.env-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.env-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.env-card-title {
+  font-weight: 600;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+}
+
+.env-card-url {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  word-break: break-all;
+}
+
+.env-card-meta {
+  margin-top: 0.2rem;
+}
+
+.env-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.env-tag.muted {
+  color: #64748b;
+}
+
+.env-card-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.env-required {
+  color: #fca5a5;
+}

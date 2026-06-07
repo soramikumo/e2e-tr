@@ -48,10 +48,20 @@ func (e *Executor) ExecuteTest(reqCtx context.Context, run *domain.Run, rs store
 	// baseURL を指定した実行では PLAYWRIGHT_BASE_URL を注入し、playwright.config が
 	// これを読む(相対 goto の spec が dev/prod/blue-green で切り替わる)。空なら env は
 	// 親から継承させ、config 既定の baseURL がそのまま使われる。
+	// 認証情報も Environment 経由なら同時に注入(httpCredentials として config が拾う)。
 	var env []string
-	if run.BaseURL != "" {
-		run.AddLog("[info] baseURL: " + run.BaseURL)
-		env = append(os.Environ(), "PLAYWRIGHT_BASE_URL="+run.BaseURL)
+	if run.BaseURL != "" || run.AuthUser != "" {
+		env = append([]string{}, os.Environ()...)
+		if run.BaseURL != "" {
+			run.AddLog("[info] baseURL: " + run.BaseURL)
+			env = append(env, "PLAYWRIGHT_BASE_URL="+run.BaseURL)
+		}
+		if run.AuthUser != "" {
+			// パスワードはログに出さない(ユーザー名だけ)。
+			run.AddLog("[info] basic auth: " + run.AuthUser + " ***")
+			env = append(env, "PLAYWRIGHT_HTTP_AUTH_USER="+run.AuthUser)
+			env = append(env, "PLAYWRIGHT_HTTP_AUTH_PASS="+run.AuthPass)
+		}
 	}
 	stdout := newLineWriter(func(line string) { run.AddLog(line) })
 	stderr := newLineWriter(func(line string) { run.AddLog("[stderr] " + line) })
