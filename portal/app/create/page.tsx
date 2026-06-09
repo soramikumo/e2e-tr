@@ -134,7 +134,12 @@ export default function CreatePage() {
 
   return (
     <>
-      <h1 className="page-title">シナリオ作成</h1>
+      <header className="page-head">
+        <div>
+          <h1 className="page-title">Record</h1>
+          <p className="page-sub">URL を入れて操作を記録すると spec が保存される。</p>
+        </div>
+      </header>
 
       <section>
         <h2>記録設定</h2>
@@ -215,7 +220,7 @@ export default function CreatePage() {
               <button className="tag-edit-btn" onClick={openTagModal}>
                 🏷 タグを付ける
               </button>
-              <button className="tag-button" onClick={() => router.push('/')}>
+              <button className="tag-button" onClick={() => router.push('/tests')}>
                 テスト実行ページへ →
               </button>
             </div>
