@@ -220,6 +220,319 @@ paths:
           description: Invalid filename (missing `.spec.ts` suffix).
         '404':
           description: File not found.
+    patch:
+      summary: Rename a scenario file
+      description: Renames a `.spec.ts` file and migrates its tag assignments to the new name.
+      operationId: renameScenario
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: Current filename (must end in `.spec.ts`).
+          schema:
+            type: string
+            example: my-scenario.spec.ts
+        - name: to
+          in: query
+          required: true
+          description: New filename (must end in `.spec.ts`).
+          schema:
+            type: string
+            example: renamed-scenario.spec.ts
+      responses:
+        '200':
+          description: Renamed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, name]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  name:
+                    type: string
+                    example: renamed-scenario.spec.ts
+        '400':
+          description: Invalid filename or same name.
+        '404':
+          description: Source file not found.
+        '409':
+          description: Target filename already exists.
+
+  /api/scenarios/code:
+    get:
+      summary: Get a saved scenario's source
+      description: Returns the source code of an existing `.spec.ts` scenario file.
+      operationId: getScenarioCode
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: Filename (must end in `.spec.ts`).
+          schema:
+            type: string
+            example: my-scenario.spec.ts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, code]
+                properties:
+                  name:
+                    type: string
+                    example: my-scenario.spec.ts
+                  code:
+                    type: string
+                    description: Full source of the scenario file.
+        '400':
+          description: Invalid filename (missing `.spec.ts` suffix).
+        '404':
+          description: File not found.
+    put:
+      summary: Overwrite a saved scenario's source
+      description: Replaces the source of an existing `.spec.ts` file. New files are not created.
+      operationId: updateScenarioCode
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: Filename (must end in `.spec.ts`).
+          schema:
+            type: string
+            example: my-scenario.spec.ts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  description: New source for the scenario file.
+      responses:
+        '200':
+          description: Saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, name]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  name:
+                    type: string
+                    example: my-scenario.spec.ts
+        '400':
+          description: Invalid filename or malformed body.
+        '404':
+          description: File not found.
+        '500':
+          description: Failed to write the file.
+
+  /api/scenarios/tags:
+    put:
+      summary: Replace a scenario's tag assignments
+      description: Wholesale-replaces the set of tags assigned to a scenario.
+      operationId: setScenarioTags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario, tags]
+              properties:
+                scenario:
+                  type: string
+                  description: Scenario filename (must end in `.spec.ts`).
+                  example: my-scenario.spec.ts
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  example: ['smoke', 'search']
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tags]
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                    example: ['smoke', 'search']
+        '400':
+          description: Invalid scenario name or malformed body.
+        '500':
+          description: Failed to save tag assignments.
+
+  /api/codegen/code:
+    get:
+      summary: Get the recording session's live source
+      description: |
+        Returns the current `.spec.ts` source being written by an active codegen session,
+        for live polling in the portal. Returns empty code if the file does not exist yet.
+      operationId: getCodegenCode
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Session ID returned by `POST /api/codegen/start`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, status]
+                properties:
+                  code:
+                    type: string
+                    description: Current source of the recording (may be empty).
+                  status:
+                    type: string
+                    description: Current status of the codegen session.
+                    example: running
+        '404':
+          description: Session ID not found.
+
+  /api/environments:
+    get:
+      summary: List execution environments
+      description: Returns all configured execution environments. Passwords are masked in the response.
+      operationId: listEnvironments
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [environments]
+                properties:
+                  environments:
+                    type: array
+                    items:
+                      type: object
+        '500':
+          description: Failed to list environments.
+    post:
+      summary: Create an execution environment
+      description: Creates a new execution environment with an optional basic-auth credential.
+      operationId: createEnvironment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, baseURL]
+              properties:
+                name:
+                  type: string
+                  example: staging
+                baseURL:
+                  type: string
+                  format: uri
+                  example: https://staging.example.com
+                basicAuthUser:
+                  type: string
+                basicAuthPass:
+                  type: string
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Missing or invalid `name`/`baseURL`.
+        '409':
+          description: An environment with this name already exists.
+        '500':
+          description: Failed to create the environment.
+    patch:
+      summary: Update an execution environment
+      description: Replaces the fields of an existing environment. An omitted `basicAuthPass` leaves the password untouched.
+      operationId: updateEnvironment
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Environment ID.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, baseURL]
+              properties:
+                name:
+                  type: string
+                baseURL:
+                  type: string
+                  format: uri
+                basicAuthUser:
+                  type: string
+                basicAuthPass:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Updated
+        '400':
+          description: Missing `id` or invalid `name`/`baseURL`.
+        '404':
+          description: Environment not found.
+        '409':
+          description: An environment with this name already exists.
+        '500':
+          description: Failed to update the environment.
+    delete:
+      summary: Delete an execution environment
+      description: Permanently removes the specified execution environment.
+      operationId: deleteEnvironment
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Environment ID.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+        '400':
+          description: Missing `id`.
+        '404':
+          description: Environment not found.
+        '500':
+          description: Failed to delete the environment.
 
 components:
   schemas:

@@ -180,7 +180,7 @@ func waitForPort(port int) error {
 	return fmt.Errorf("port %d が 10 秒以内に起動しませんでした", port)
 }
 
-// Xvfb が X11 ソケットを作成するまで最大 2 秒ポーリングする
+// Xvnc が X11 ソケットを作成するまで最大 2 秒ポーリングする
 func waitForDisplay(display string) error {
 	num := strings.TrimPrefix(display, ":")
 	socket := "/tmp/.X11-unix/X" + num
