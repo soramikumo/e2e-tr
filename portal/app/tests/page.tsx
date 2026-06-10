@@ -180,7 +180,7 @@ export default function Home() {
         ))}
       </pre>
       {run.status !== 'running' && !run.id.startsWith('err-') && (
-        <a className="report-link" href={`${API}/report/`} target="_blank" rel="noopener noreferrer">
+        <a className="report-link" href={`${API}/report/${run.id}/`} target="_blank" rel="noopener noreferrer">
           HTMLレポートを開く →
         </a>
       )}

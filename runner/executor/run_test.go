@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,9 +49,72 @@ func TestExecuteTest_TagRun_PassesCorrectArgs(t *testing.T) {
 	run.Files = []string{"login.spec.ts", "signup.spec.ts"}
 	ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
 
-	want := []string{"playwright", "test", "tests/login.spec.ts", "tests/signup.spec.ts", "--reporter=line,html"}
+	want := []string{"playwright", "test", "tests/login.spec.ts", "tests/signup.spec.ts", "--reporter=line,html", "--output", "test-results/" + run.ID}
 	if !slices.Equal(fake.lastOpts.Args, want) {
 		t.Errorf("Args = %v, want %v", fake.lastOpts.Args, want)
+	}
+}
+
+// レポート/アーティファクトの出力先が run.ID 単位に分離されることを確認する(#88)。
+// HTML レポートは env PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/<id>、
+// アーティファクトは CLI --output test-results/<id> で渡る。
+func TestExecuteTest_IsolatesReportAndArtifactsByRunID(t *testing.T) {
+	fake := &fakeRunner{}
+	ex := executor.New(fake, "/tmp/tests")
+
+	run := domain.NewRun("smoke", "")
+	run.Files = []string{"login.spec.ts"}
+	ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
+
+	// --output が test-results/<run.ID> を指す引数として渡っていること。
+	wantOutput := "test-results/" + run.ID
+	foundOutput := false
+	for i, arg := range fake.lastOpts.Args {
+		if arg == "--output" && i+1 < len(fake.lastOpts.Args) && fake.lastOpts.Args[i+1] == wantOutput {
+			foundOutput = true
+		}
+	}
+	if !foundOutput {
+		t.Errorf("Args = %v, want --output %q", fake.lastOpts.Args, wantOutput)
+	}
+
+	// env に PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/<run.ID> が含まれること。
+	wantEnv := "PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/" + run.ID
+	if !slices.Contains(fake.lastOpts.Env, wantEnv) {
+		t.Errorf("Env = %v, want to contain %q", fake.lastOpts.Env, wantEnv)
+	}
+}
+
+// 異なる run.ID では出力先パスも異なる(並列実行で衝突しない)ことを確認する。
+func TestExecuteTest_DifferentRunsGetDifferentOutputDirs(t *testing.T) {
+	ex := executor.New(&fakeRunner{}, "/tmp/tests")
+
+	collect := func() (string, string) {
+		fake := &fakeRunner{}
+		ex = executor.New(fake, "/tmp/tests")
+		run := domain.NewRun("", "login")
+		ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
+		var html, output string
+		for _, e := range fake.lastOpts.Env {
+			if v, ok := strings.CutPrefix(e, "PLAYWRIGHT_HTML_OUTPUT_DIR="); ok {
+				html = v
+			}
+		}
+		for i, a := range fake.lastOpts.Args {
+			if a == "--output" && i+1 < len(fake.lastOpts.Args) {
+				output = fake.lastOpts.Args[i+1]
+			}
+		}
+		return html, output
+	}
+
+	html1, out1 := collect()
+	html2, out2 := collect()
+	if html1 == html2 {
+		t.Errorf("two runs got the same HTML output dir %q (must differ by run.ID)", html1)
+	}
+	if out1 == out2 {
+		t.Errorf("two runs got the same artifact dir %q (must differ by run.ID)", out1)
 	}
 }
 
@@ -64,7 +128,7 @@ func TestExecuteTest_TraceEnabled_AddsTraceOn(t *testing.T) {
 	run.Trace = true
 	ex.ExecuteTest(context.Background(), run, store.NewMemoryRunStore(), 5*time.Second)
 
-	want := []string{"playwright", "test", "tests/login.spec.ts", "--reporter=line,html", "--trace", "on"}
+	want := []string{"playwright", "test", "tests/login.spec.ts", "--reporter=line,html", "--trace", "on", "--output", "test-results/" + run.ID}
 	if !slices.Equal(fake.lastOpts.Args, want) {
 		t.Errorf("Args = %v, want %v", fake.lastOpts.Args, want)
 	}
