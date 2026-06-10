@@ -40,7 +40,7 @@ func Load() *Config {
 		TestsDir: env("TESTS_DIR", "../tests"),
 		Port:     env("PORT", ":8080"),
 		DBPath:   env("DB_PATH", "./runner.db"),
-		// USE_NOVNC: コンテナ/PaaS など画面なし環境では true（Xvfb+noVNC を使う）。
+		// USE_NOVNC: コンテナ/PaaS など画面なし環境では true（KasmVNC の Xvnc を使う）。
 		// env 名とフィールド名を同じ極性で対応させ、反転は一切挟まない。
 		UseNoVNC:          boolEnv("USE_NOVNC", true),
 		RunTimeout:        time.Duration(minutes) * time.Minute,

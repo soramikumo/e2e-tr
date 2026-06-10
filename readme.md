@@ -60,7 +60,7 @@ flowchart TD
     Report -->|"GET /report/"| Browser
 ```
 
-**Why noVNC?** When running inside Docker, Chromium has no physical display — you can't see or interact with the codegen browser from your machine. noVNC solves this by streaming the virtual display (`Xvfb`) over WebSocket, embedding it as an iframe in the portal. This is the primary use case: **Docker Compose with `USE_NOVNC=true` is the fully supported path.** → [noVNC architecture](docs/novnc-architecture.md)
+**Why KasmVNC?** When running inside Docker, Chromium has no physical display — you can't see or interact with the codegen browser from your machine. KasmVNC solves this: its `Xvnc` server bundles the X server, VNC, and a WebSocket-capable web server into a single process, streaming the virtual display over WebSocket and embedding it as an iframe in the portal. This is the primary use case: **Docker Compose with `USE_NOVNC=true` is the fully supported path.** → [browser preview architecture](docs/novnc-architecture.md)
 
 ---
 
@@ -73,7 +73,7 @@ flowchart TD
 | API server | Go (net/http, SSE streaming) |
 | Test execution | Playwright + TypeScript |
 | Realtime logs | Server-Sent Events (SSE) |
-| Browser preview | noVNC (Xvfb + x11vnc + websockify) |
+| Browser preview | KasmVNC (Xvnc — X server + VNC + Web in one process) |
 | Container | Docker / docker-compose |
 | Infrastructure | Terraform (planned) |
 
@@ -149,10 +149,10 @@ npm run storybook
 |----------|---------|---------|-------------|
 | `TESTS_DIR` | runner | `../tests` | Path to the tests directory |
 | `PORT` | runner | `:8080` | HTTP listen address |
-| `DB_PATH` | runner | `./runner.db` | SQLite path (reserved, not yet used) |
-| `USE_NOVNC` | runner | `false` | Enable Xvfb + x11vnc + noVNC for codegen browser preview (up to 10 concurrent sessions) |
+| `DB_PATH` | runner | `./runner.db` | SQLite path (reserved, not yet used — a SQLite store exists but is not yet wired up) |
+| `USE_NOVNC` | runner | `true` | Enable KasmVNC (Xvnc) for codegen browser preview (up to 10 concurrent sessions) |
 | `RUN_TIMEOUT_MINUTES` | runner | `30` | Maximum minutes a single test run is allowed to execute before it is forcibly killed |
-| `MAX_CONCURRENT_RUNS` | runner | `1` | Maximum number of test runs that may execute in parallel; excess requests receive HTTP 429 |
+| `MAX_CONCURRENT_RUNS` | runner | `4` | Maximum number of test runs that may execute in parallel; excess requests receive HTTP 429 |
 | `NEXT_PUBLIC_API_URL` | portal | `http://localhost:8080` | Runner API base URL |
 | `NEXT_PUBLIC_NOVNC_HOST` | portal | `http://localhost` | Hostname used to build noVNC iframe URLs |
 
@@ -167,8 +167,17 @@ npm run storybook
 | `GET` | `/api/stream?id=` | SSE stream of run logs |
 | `POST` | `/api/codegen/start` | Start a Playwright codegen session; returns `noVNCPort` when `USE_NOVNC=true` |
 | `GET` | `/api/codegen/stream?id=` | SSE stream of codegen status |
+| `GET` | `/api/codegen/code?id=` | Get the live source of the recording session's `.spec.ts` |
 | `GET` | `/api/scenarios` | List saved scenario files |
+| `PATCH` | `/api/scenarios?name=&to=` | Rename a scenario file (migrates tag assignments) |
 | `DELETE` | `/api/scenarios?name=` | Delete a scenario file |
+| `GET` | `/api/scenarios/code?name=` | Get the source of a saved scenario file |
+| `PUT` | `/api/scenarios/code?name=` | Overwrite the source of an existing scenario file |
+| `PUT` | `/api/scenarios/tags` | Replace the tag assignments of a scenario |
+| `GET` | `/api/environments` | List execution environments (passwords masked) |
+| `POST` | `/api/environments` | Create an execution environment |
+| `PATCH` | `/api/environments?id=` | Update an execution environment |
+| `DELETE` | `/api/environments?id=` | Delete an execution environment |
 | `GET` | `/report/` | Playwright HTML report |
 
 ---
@@ -194,7 +203,7 @@ BDD specifications: [`spec/runner.md`](spec/runner.md) | [`spec/portal-ui.md`](s
 
 - **In-memory run history.** Completed runs are stored in memory only and lost on restart. Persistent storage is planned.
 - **No authentication.** The portal has no login. Do not expose it to the public internet as-is.
-- **Configurable concurrency, single machine.** `MAX_CONCURRENT_RUNS` (default `1`) controls how many tests run in parallel, but all runs share one machine. Parallel execution across ECS tasks is a planned feature.
+- **Configurable concurrency, single machine.** `MAX_CONCURRENT_RUNS` (default `4`) controls how many tests run in parallel, but all runs share one machine. Parallel execution across ECS tasks is a planned feature.
 
 ---
 
