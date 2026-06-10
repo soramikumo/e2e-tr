@@ -29,12 +29,23 @@ func Load() *Config {
 			minutes = m
 		}
 	}
+	// 0以下のタイムアウトは「即タイムアウト」を意味してしまい実行が成立しない。
+	// 不正な指定は無効化し、既定の 30 分にフォールバックする。
+	if minutes <= 0 {
+		minutes = 30
+	}
 	// 既定で複数テストを並列実行できるようにする(MAX_CONCURRENT_RUNS で調整可)。
 	maxConcurrent := 4
 	if v := os.Getenv("MAX_CONCURRENT_RUNS"); v != "" {
 		if m, err := strconv.Atoi(v); err == nil {
 			maxConcurrent = m
 		}
+	}
+	// この値は handler 側で並列実行枠の semaphore チャネルのバッファ長になる。
+	// 0 だとバッファ無しチャネルになり全実行が 429 で弾かれ、負値だと make が
+	// panic する。最低 1 を保証して常に1件は実行できるようにクランプする。
+	if maxConcurrent < 1 {
+		maxConcurrent = 1
 	}
 	return &Config{
 		TestsDir: env("TESTS_DIR", "../tests"),
