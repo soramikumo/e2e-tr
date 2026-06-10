@@ -298,6 +298,86 @@ func TestHandleScenarios_DELETE_InvalidName(t *testing.T) {
 	}
 }
 
+// ── /report/<run.ID>/ 配信(#88) ──────────────────────────────────────────────
+
+// newReportMux は main() のレポート配信ルーティングと同じ構成の mux を作る。
+func newReportMux(reportDir string) *http.ServeMux {
+	mux := http.NewServeMux()
+	fileServer := http.StripPrefix("/report/", http.FileServer(http.Dir(reportDir)))
+	mux.Handle("/report/", validateReportPath(fileServer))
+	return mux
+}
+
+// run.ID 単位のサブディレクトリに置いたレポートが /report/<run.ID>/ で配信されること。
+func TestReport_ServesPerRunSubdir(t *testing.T) {
+	reportDir := t.TempDir()
+	runID := domain.RandomID()
+	runReport := filepath.Join(reportDir, runID)
+	if err := os.MkdirAll(runReport, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(runReport, "index.html"), []byte("<html>run report</html>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	mux := newReportMux(reportDir)
+	// ディレクトリ末尾 "/" で index.html が配信される(FileServer は
+	// .../index.html を .../ にリダイレクトするため、ディレクトリパスを叩く)。
+	req := httptest.NewRequest(http.MethodGet, "/report/"+runID+"/", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	res := w.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("GET /report/%s/ = %d, want 200", runID, res.StatusCode)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "run report") {
+		t.Errorf("body = %q, want it to contain the per-run report", body)
+	}
+}
+
+// 別 run の index.html が混ざらない(分離されている)ことを確認する。
+func TestReport_IsolatesBetweenRuns(t *testing.T) {
+	reportDir := t.TempDir()
+	for _, c := range []struct{ id, content string }{
+		{"aaaa1111", "report A"},
+		{"bbbb2222", "report B"},
+	} {
+		d := filepath.Join(reportDir, c.id)
+		os.MkdirAll(d, 0755)
+		os.WriteFile(filepath.Join(d, "index.html"), []byte(c.content), 0644)
+	}
+
+	mux := newReportMux(reportDir)
+	req := httptest.NewRequest(http.MethodGet, "/report/aaaa1111/", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if got := w.Body.String(); !strings.Contains(got, "report A") || strings.Contains(got, "report B") {
+		t.Errorf("body = %q, want only report A (runs must not leak into each other)", got)
+	}
+}
+
+// 英数字以外を含む run.ID 部分(パストラバーサル試行など)は 404 で弾かれること。
+func TestReport_RejectsNonAlphanumericRunID(t *testing.T) {
+	reportDir := t.TempDir()
+	mux := newReportMux(reportDir)
+
+	for _, target := range []string{
+		"/report/foo.bar/index.html",
+		"/report/foo-bar/index.html",
+		"/report/foo..bar/index.html",
+	} {
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Result().StatusCode != http.StatusNotFound {
+			t.Errorf("GET %s = %d, want 404 (invalid run.ID must be rejected)", target, w.Result().StatusCode)
+		}
+	}
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func writeSpec(t *testing.T, dir, name, content string) {
