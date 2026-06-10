@@ -148,7 +148,8 @@ npm run storybook
 | Variable | Service | Default | Description |
 |----------|---------|---------|-------------|
 | `TESTS_DIR` | runner | `../tests` | Path to the tests directory |
-| `PORT` | runner | `:8080` | HTTP listen address |
+| `PORT` | runner | `127.0.0.1:8080` | HTTP listen address. Defaults to localhost-only; set `0.0.0.0:8080` to expose (auth required, see Known limitations) |
+| `ALLOWED_ORIGINS` | runner | (localhost only) | Comma-separated extra origins allowed by `SameOriginGuard`; `localhost`/`127.0.0.1` (any port) are always allowed |
 | `DB_PATH` | runner | `./runner.db` | SQLite path (reserved, not yet used — a SQLite store exists but is not yet wired up) |
 | `USE_NOVNC` | runner | `true` | Enable KasmVNC (Xvnc) for codegen browser preview (up to 10 concurrent sessions) |
 | `RUN_TIMEOUT_MINUTES` | runner | `30` | Maximum minutes a single test run is allowed to execute before it is forcibly killed |
@@ -202,7 +203,7 @@ BDD specifications: [`spec/runner.md`](spec/runner.md) | [`spec/portal-ui.md`](s
 ## Known limitations
 
 - **In-memory run history.** Completed runs are stored in memory only and lost on restart. Persistent storage is planned.
-- **No authentication.** The portal has no login. Do not expose it to the public internet as-is.
+- **No authentication.** The runner has no login and can execute arbitrary specs, so an exposed instance is effectively a remote code execution (RCE) endpoint. To stay safe by default, the runner binds to `127.0.0.1` (localhost only) and a `SameOriginGuard` rejects cross-origin browser requests. **If you expose it publicly**, widen the bind via `PORT` (e.g. `0.0.0.0:8080`) and allow your front-end origins via `ALLOWED_ORIGINS` — and you **must** put authentication in front of it (e.g. a reverse proxy / the Web edition's auth middleware). Do not expose it as-is.
 - **Configurable concurrency, single machine.** `MAX_CONCURRENT_RUNS` (default `4`) controls how many tests run in parallel, but all runs share one machine. Parallel execution across ECS tasks is a planned feature.
 
 ---

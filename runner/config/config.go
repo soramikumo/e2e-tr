@@ -19,7 +19,7 @@ type Config struct {
 	VNCSecurityTypes    string // -SecurityTypes（既定 "None"=無認証）
 	VNCDisableBasicAuth bool   // 既定 true。BasicAuth を使うなら false
 	VNCSSLOnly          bool   // 既定 false。true で wss を強制（-sslOnly 1）
-	VNCInterface        string // バインド先（既定 "0.0.0.0"）
+	VNCInterface        string // バインド先（既定 "127.0.0.1"）
 }
 
 func Load() *Config {
@@ -49,7 +49,7 @@ func Load() *Config {
 	}
 	return &Config{
 		TestsDir: env("TESTS_DIR", "../tests"),
-		Port:     env("PORT", ":8080"),
+		Port:     env("PORT", "127.0.0.1:8080"),
 		DBPath:   env("DB_PATH", "./runner.db"),
 		// USE_NOVNC: コンテナ/PaaS など画面なし環境では true（KasmVNC の Xvnc を使う）。
 		// env 名とフィールド名を同じ極性で対応させ、反転は一切挟まない。
@@ -60,7 +60,7 @@ func Load() *Config {
 		VNCSecurityTypes:    env("VNC_SECURITY_TYPES", "None"),
 		VNCDisableBasicAuth: boolEnv("VNC_DISABLE_BASIC_AUTH", true),
 		VNCSSLOnly:          boolEnv("VNC_SSL_ONLY", false),
-		VNCInterface:        env("VNC_INTERFACE", "0.0.0.0"),
+		VNCInterface:        env("VNC_INTERFACE", "127.0.0.1"),
 	}
 }
 

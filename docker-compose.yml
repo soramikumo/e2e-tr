@@ -10,6 +10,11 @@ services:
     environment:
       - TESTS_DIR=/tests
       - USE_NOVNC=true
+      # 既定の listen は 127.0.0.1(ローカル限定)だが、compose ではコンテナ外
+      # (ホスト→コンテナ、portal/ブラウザ)から到達する必要があるため、ここで
+      # 明示的に全インターフェースに広げて従来の到達性を維持する。
+      - PORT=0.0.0.0:8080
+      - VNC_INTERFACE=0.0.0.0
 
   portal:
     build:
