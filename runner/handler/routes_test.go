@@ -70,6 +70,51 @@ func TestRegister_DefaultsToCORS(t *testing.T) {
 	}
 }
 
+// TestRegister_DefaultGuardsCrossOrigin は既定チェーン(引数ゼロ)に
+// SameOriginGuard が組み込まれ、不許可オリジンの本リクエストが 403 になることを
+// 確かめる。許可オリジン(localhost)の同種リクエストは通る。
+func TestRegister_DefaultGuardsCrossOrigin(t *testing.T) {
+	h := newTestHandler(t)
+
+	mux := http.NewServeMux()
+	h.Register(mux) // 既定 = CORS + SameOriginGuard
+
+	// 不許可オリジンの GET → 403(GET なら CORS の OPTIONS 短絡は効かない)。
+	bad := httptest.NewRequest(http.MethodGet, "/api/tags", nil)
+	bad.Header.Set("Origin", "http://evil.example.com")
+	wBad := httptest.NewRecorder()
+	mux.ServeHTTP(wBad, bad)
+	if wBad.Result().StatusCode != http.StatusForbidden {
+		t.Errorf("cross-origin GET via default chain: got %d, want 403", wBad.Result().StatusCode)
+	}
+
+	// 許可オリジン(localhost)の GET は 403 にならない。
+	good := httptest.NewRequest(http.MethodGet, "/api/tags", nil)
+	good.Header.Set("Origin", "http://localhost:3000")
+	wGood := httptest.NewRecorder()
+	mux.ServeHTTP(wGood, good)
+	if wGood.Result().StatusCode == http.StatusForbidden {
+		t.Errorf("same-origin GET via default chain: got 403, want pass-through")
+	}
+}
+
+// TestRegister_DefaultCORSShortCircuitsPreflight は既定チェーンに
+// SameOriginGuard を足しても、CORS が最外側で OPTIONS preflight を 204 で
+// 短絡する契約が壊れていないことを確かめる(Origin 無し preflight)。
+func TestRegister_DefaultCORSShortCircuitsPreflight(t *testing.T) {
+	h := newTestHandler(t)
+
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/tags", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if got := w.Result().StatusCode; got != http.StatusNoContent {
+		t.Errorf("preflight via default chain: got %d, want 204", got)
+	}
+}
+
 // TestRegister_CORSOutermostBeatsRejectingMiddleware は順序契約の実害を検証する:
 // CORS を最外側、すべてを 401 で弾く mw をその内側に置くと、OPTIONS preflight は
 // 認証に到達する前に CORS が 204 を返す。逆順だと preflight が 401 になり、

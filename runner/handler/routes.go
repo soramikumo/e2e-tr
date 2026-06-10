@@ -10,8 +10,9 @@ type Middleware func(http.HandlerFunc) http.HandlerFunc
 
 // Register は runner の API ルートを mux に登録する。
 //
-// 各ルートは mw で包まれる。mw を省略すると OSS 既定の CORS のみが適用され、
-// 従来挙動と同一(後方互換 ── 引数ゼロの h.Register(mux) はそのまま動く)。
+// 各ルートは mw で包まれる。mw を省略すると OSS 既定として
+// CORS + SameOriginGuard が適用される(引数ゼロの h.Register(mux) は従来同様に
+// 動くが、ブラウザ経由のクロスオリジン fetch は SameOriginGuard が 403 で弾く)。
 // Web 版は独自の CORS/認証を mw として渡すことで、この API 面を再利用しつつ
 // 振る舞いだけを差し替えられる(OSS は auth を一切知らないままでいられる)。
 //
@@ -37,7 +38,10 @@ type Middleware func(http.HandlerFunc) http.HandlerFunc
 // SSE が無言で停止する。
 func (h *Handler) Register(mux *http.ServeMux, mw ...Middleware) {
 	if len(mw) == 0 {
-		mw = []Middleware{CORS}
+		// 既定: CORS を最外側に置き(OPTIONS preflight を SameOriginGuard より
+		// 先に 204 で短絡させる)、その内側で SameOriginGuard が不許可オリジンの
+		// 本リクエストを 403 で弾く。順序は Register の合成順契約に従う。
+		mw = []Middleware{CORS, SameOriginGuard}
 	}
 	wrap := func(fn http.HandlerFunc) http.HandlerFunc { return chain(fn, mw...) }
 

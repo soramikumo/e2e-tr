@@ -148,7 +148,8 @@ npm run storybook
 | 変数 | サービス | デフォルト | 説明 |
 |------|---------|-----------|------|
 | `TESTS_DIR` | runner | `../tests` | テストディレクトリのパス |
-| `PORT` | runner | `:8080` | HTTP リッスンアドレス |
+| `PORT` | runner | `127.0.0.1:8080` | HTTP リッスンアドレス。既定は localhost 限定。公開する場合は `0.0.0.0:8080` 等に広げる（認証必須・Known limitations 参照） |
+| `ALLOWED_ORIGINS` | runner | （localhost のみ） | `SameOriginGuard` が追加で許可するオリジン（カンマ区切り）。`localhost`/`127.0.0.1`（任意ポート）は常に許可 |
 | `DB_PATH` | runner | `./runner.db` | SQLite パス（予約済み・未使用） |
 | `USE_NOVNC` | runner | `false` | Xvfb + x11vnc + noVNC を有効化（最大 10 並行セッション） |
 | `NEXT_PUBLIC_API_URL` | portal | `http://localhost:8080` | Runner API のベース URL |
@@ -191,7 +192,7 @@ BDD 仕様書: [`spec/runner.md`](spec/runner.md) | [`spec/portal-ui.md`](spec/p
 ## 既知の制限事項
 
 - **実行履歴はメモリのみ。** 完了した実行はメモリに保存されるため、再起動すると消える。永続ストレージは予定。
-- **認証なし。** ポータルにログインはない。インターネットに公開しないこと。
+- **認証なし。** runner はログインを持たず任意の spec を実行できるため、公開された instance は実質的にリモートコード実行（RCE）の口になりうる。安全側の既定として runner は `127.0.0.1`（localhost 限定）にバインドし、`SameOriginGuard` がブラウザ経由のクロスオリジンリクエストを拒否する。**公開する場合は** `PORT`（例 `0.0.0.0:8080`）でバインドを広げ、`ALLOWED_ORIGINS` でフロントエンドのオリジンを許可したうえで、**必ず前段に認証を置くこと**（リバースプロキシや Web 版の認証ミドルウェア等）。そのまま公開しないこと。
 - **シングルランナー。** テストは 1 台で順次実行される。ECS タスクによる並列実行は将来予定。
 
 ---
