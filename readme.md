@@ -150,7 +150,7 @@ npm run storybook
 | `TESTS_DIR` | runner | `../tests` | Path to the tests directory |
 | `PORT` | runner | `127.0.0.1:8080` | HTTP listen address. Defaults to localhost-only; set `0.0.0.0:8080` to expose (auth required, see Known limitations) |
 | `ALLOWED_ORIGINS` | runner | (localhost only) | Comma-separated extra origins allowed by `SameOriginGuard`; `localhost`/`127.0.0.1` (any port) are always allowed |
-| `DB_PATH` | runner | `./runner.db` | SQLite path (reserved, not yet used — a SQLite store exists but is not yet wired up) |
+| `DB_PATH` | runner | `<TESTS_DIR>/.runs.db` | SQLite path for run history. Defaults under `TESTS_DIR` so it persists on the mounted volume; set explicitly to override |
 | `USE_NOVNC` | runner | `true` | Enable KasmVNC (Xvnc) for codegen browser preview (up to 10 concurrent sessions) |
 | `RUN_TIMEOUT_MINUTES` | runner | `30` | Maximum minutes a single test run is allowed to execute before it is forcibly killed |
 | `MAX_CONCURRENT_RUNS` | runner | `4` | Maximum number of test runs that may execute in parallel; excess requests receive HTTP 429 |
@@ -165,6 +165,7 @@ npm run storybook
 |--------|------|-------------|
 | `GET` | `/api/tags` | List test tags scanned from `.spec.ts` files |
 | `POST` | `/api/run` | Run tests by tag or file |
+| `GET` | `/api/runs` | List run history (persisted in SQLite), newest first |
 | `GET` | `/api/stream?id=` | SSE stream of run logs |
 | `POST` | `/api/codegen/start` | Start a Playwright codegen session; returns `noVNCPort` when `USE_NOVNC=true` |
 | `GET` | `/api/codegen/stream?id=` | SSE stream of codegen status |
@@ -202,7 +203,7 @@ BDD specifications: [`spec/runner.md`](spec/runner.md) | [`spec/portal-ui.md`](s
 
 ## Known limitations
 
-- **In-memory run history.** Completed runs are stored in memory only and lost on restart. Persistent storage is planned.
+- **Run history is persisted in SQLite.** Completed runs survive restarts (stored at `DB_PATH`, default under `TESTS_DIR`). Active (running) runs live in memory and are lost if the process dies mid-run; on restart any run left in `running` state is marked `failed`.
 - **No authentication.** The runner has no login and can execute arbitrary specs, so an exposed instance is effectively a remote code execution (RCE) endpoint. To stay safe by default, the runner binds to `127.0.0.1` (localhost only) and a `SameOriginGuard` rejects cross-origin browser requests. **If you expose it publicly**, widen the bind via `PORT` (e.g. `0.0.0.0:8080`) and allow your front-end origins via `ALLOWED_ORIGINS` — and you **must** put authentication in front of it (e.g. a reverse proxy / the Web edition's auth middleware). Do not expose it as-is.
 - **Configurable concurrency, single machine.** `MAX_CONCURRENT_RUNS` (default `4`) controls how many tests run in parallel, but all runs share one machine. Parallel execution across ECS tasks is a planned feature.
 
@@ -211,7 +212,7 @@ BDD specifications: [`spec/runner.md`](spec/runner.md) | [`spec/portal-ui.md`](s
 ## Roadmap
 
 - [ ] AWS infrastructure via Terraform (App Runner + ECS Fargate + S3)
-- [ ] Persistent run history
+- [x] Persistent run history
 - [ ] Parallel test execution by tag
 - [ ] Authentication
 
