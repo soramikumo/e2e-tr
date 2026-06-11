@@ -69,7 +69,6 @@ flowchart TD
 | Layer | Technology |
 |-------|------------|
 | Portal UI | Next.js 16 (App Router) + TypeScript |
-| UI component development | Storybook 10 |
 | API server | Go (net/http, SSE streaming) |
 | Test execution | Playwright + TypeScript |
 | Realtime logs | Server-Sent Events (SSE) |
@@ -81,13 +80,9 @@ flowchart TD
 
 ## Getting started
 
-### Prerequisites
-
-- Go 1.21+
-- Node.js 20+
-- Playwright installed in `tests/`
-
 ### Option A — Docker Compose (recommended)
+
+All you need is Docker.
 
 ```bash
 make up
@@ -99,6 +94,8 @@ make up
 `docker-compose.yml` sets `USE_NOVNC=true` and `NEXT_PUBLIC_NOVNC_HOST` automatically.
 
 ### Option B — Manual setup
+
+Prerequisites: Go 1.25+ and Node.js 20+.
 
 **1. Set up tests**
 
@@ -126,20 +123,6 @@ NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev
 ```
 
 Open `http://localhost:3000` in your browser.
-
----
-
-## Storybook
-
-Develop and preview portal UI components in isolation.
-
-```bash
-cd portal
-npm run storybook
-# → http://localhost:6006
-```
-
-→ [Portal UI development guide](docs/portal-ui.md)
 
 ---
 

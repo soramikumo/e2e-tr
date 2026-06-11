@@ -5,9 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "start": "next start"
   },
   "dependencies": {
     "next": "^16.2.6",
@@ -15,11 +13,9 @@
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
-    "@storybook/nextjs": "^10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "storybook": "^10",
     "typescript": "^5"
   }
 }
