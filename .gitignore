@@ -1,6 +1,5 @@
 node_modules/
 .next/
-storybook-static/
 portal/*.tsbuildinfo
 tests/.tags.json
 tests/node_modules/
