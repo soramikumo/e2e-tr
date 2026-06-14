@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 )
 
 // 1MB。手書き/録画の spec として現実的な上限。これを超える body は弾き、

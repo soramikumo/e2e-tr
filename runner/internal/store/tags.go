@@ -4,7 +4,7 @@ import (
 	"slices"
 	"sync"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 )
 
 // TagStore は .tags.json を単一の真実の源とし、read-modify-write をロックで直列化する。

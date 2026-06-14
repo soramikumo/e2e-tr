@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 
 	_ "modernc.org/sqlite"
 )

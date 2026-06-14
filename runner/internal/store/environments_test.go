@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"e2e-runner/domain"
-	"e2e-runner/store"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/store"
 )
 
 func newEnv(name, url string) *domain.Environment {

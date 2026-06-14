@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"e2e-runner/config"
-	"e2e-runner/domain"
-	"e2e-runner/handler"
-	"e2e-runner/store"
+	"e2e-runner/internal/config"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/handler"
+	"e2e-runner/internal/store"
 )
 
 func newTestHandler(t *testing.T, testsDir string) *handler.Handler {

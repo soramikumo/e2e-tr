@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"e2e-runner/config"
-	"e2e-runner/handler"
-	"e2e-runner/store"
+	"e2e-runner/internal/config"
+	"e2e-runner/internal/handler"
+	"e2e-runner/internal/store"
 )
 
 func newEnvHandler(t *testing.T) *handler.Handler {

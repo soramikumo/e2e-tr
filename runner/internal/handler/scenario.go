@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 )
 
 func (h *Handler) Scenarios(w http.ResponseWriter, r *http.Request) {

@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"e2e-runner/config"
-	"e2e-runner/domain"
-	"e2e-runner/executor"
-	"e2e-runner/handler"
-	"e2e-runner/store"
+	"e2e-runner/internal/config"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/executor"
+	"e2e-runner/internal/handler"
+	"e2e-runner/internal/store"
 )
 
 // nopRunner は即座に nil を返す。実際のコマンドは実行しない。

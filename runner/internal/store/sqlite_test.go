@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"e2e-runner/domain"
-	"e2e-runner/store"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/store"
 )
 
 // newStore は t.TempDir() 配下にDBファイルを作成してストアを返す。

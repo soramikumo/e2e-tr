@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"e2e-runner/domain"
-	"e2e-runner/store"
-	"e2e-runner/vnc"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/store"
+	"e2e-runner/internal/vnc"
 )
 
 // VNCSessions は ExecuteCodegen が必要とする VNC マネージャの最小機能。

@@ -3,7 +3,7 @@ package handler
 import (
 	"testing"
 
-	"e2e-runner/vnc"
+	"e2e-runner/internal/vnc"
 )
 
 // nil *vnc.Manager を渡したとき、型なし nil インターフェースとして返ること（typed-nil

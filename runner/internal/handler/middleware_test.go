@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"e2e-runner/handler"
+	"e2e-runner/internal/handler"
 )
 
 // okHandler は到達したことを 200 で示すだけのテスト用ハンドラ。

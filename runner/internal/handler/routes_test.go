@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"e2e-runner/domain"
-	"e2e-runner/handler"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/handler"
 )
 
 // TestRegister_MiddlewareOrder は Register の合成順契約を検証する:

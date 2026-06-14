@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"e2e-runner/domain"
-	"e2e-runner/store"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/store"
 )
 
 // Environments は environment の CRUD を 1 ハンドラで多重化する。
@@ -84,9 +84,9 @@ func (h *Handler) Environments(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var body struct {
-			Name          string  `json:"name"`
-			BaseURL       string  `json:"baseURL"`
-			BasicAuthUser string  `json:"basicAuthUser"`
+			Name          string `json:"name"`
+			BaseURL       string `json:"baseURL"`
+			BasicAuthUser string `json:"basicAuthUser"`
 			// パスワードは「未指定 = 触らない / 空文字 = クリア / 値あり = 上書き」を
 			// 区別したいので *string で受ける。omitempty では null を作れず常に上書きに
 			// なるため、明示的に nullable で扱う。

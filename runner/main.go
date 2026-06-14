@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"e2e-runner/config"
-	"e2e-runner/handler"
-	"e2e-runner/store"
-	"e2e-runner/vnc"
+	"e2e-runner/internal/config"
+	"e2e-runner/internal/handler"
+	"e2e-runner/internal/store"
+	"e2e-runner/internal/vnc"
 )
 
 func main() {

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"e2e-runner/domain"
-	"e2e-runner/executor"
-	"e2e-runner/store"
-	"e2e-runner/vnc"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/executor"
+	"e2e-runner/internal/store"
+	"e2e-runner/internal/vnc"
 )
 
 // fakeVNC は VNCSessions の偽物。実際の Xvnc を起動せずセッションを注入する。
