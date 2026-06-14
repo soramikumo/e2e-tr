@@ -85,6 +85,9 @@ export default function Home() {
   const tagByName = (name: string): TagDef =>
     tags.find((t) => t.name === name) ?? { name, color: '#6e7781' };
 
+  /**
+   * シナリオ/タグ/環境のリストと、run 履歴を backend から取得して state にセットする。
+   */
   const fetchData = useCallback(() => {
     fetch(`${API}/api/tags`)
       .then((r) => r.json())
@@ -106,8 +109,55 @@ export default function Home() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const patchRun = (id: string, fn: (r: RunState) => RunState) =>
-    setRuns((prev) => prev.map((r) => (r.id === id ? fn(r) : r)));
+  /**
+   * 指定した run に SSE で受け取ったログ行を1行追加する。
+   */
+  const appendRunLog = (id: string, message: string) => {
+    const logLine: LogLine = { text: message, kind: classifyLine(message) };
+
+    // currentRuns は React が渡す「更新前の runs 配列」。対象 id の run だけを差し替える。
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => {
+        if (run.id !== id) return run;
+        return { ...run, logs: [...run.logs, logLine] };
+      }),
+    );
+  };
+
+  /**
+   * 指定した run の実行ステータスを更新する。
+   */
+  const updateRunStatus = (id: string, status: RunStatus) => {
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => {
+        if (run.id !== id) return run;
+        return { ...run, status };
+      }),
+    );
+  };
+
+  /**
+   * SSE 接続エラー時に、まだ実行中の run だけ失敗扱いにする。
+   */
+  const markRunFailedIfRunning = (id: string) => {
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => {
+        if (run.id !== id || run.status !== 'running') return run;
+        return { ...run, status: 'failed' };
+      }),
+    );
+  };
+
+  /**
+   * 実行開始と同時に、running ステータスで空ログの run を追加する。
+   * SSE でログが届いたら同じ id の run にログを追加していく。
+   */
+  const addRunningRun = (id: string, label: string) => {
+    setRuns((currentRuns) => [
+      { id, label, status: 'running', logs: [] },
+      ...currentRuns.filter((run) => run.label !== label),
+    ]);
+  };
 
   const startRun = async (label: string, body: { tag?: string; file?: string }, trace: boolean) => {
     let id: string;
@@ -119,31 +169,30 @@ export default function Home() {
       });
       if (!res.ok) {
         const msg = (await res.text()).trim();
-        setRuns((prev) => [
+        setRuns((currentRuns) => [
           { id: `err-${Date.now()}`, label, status: 'failed', logs: [{ text: `[error] 起動失敗: ${msg}`, kind: 'error' }] },
-          ...prev,
+          ...currentRuns,
         ]);
         return;
       }
       ({ id } = await res.json());
     } catch (e) {
-      setRuns((prev) => [
+      setRuns((currentRuns) => [
         { id: `err-${Date.now()}`, label, status: 'failed', logs: [{ text: `[error] 起動失敗: ${e}`, kind: 'error' }] },
-        ...prev,
+        ...currentRuns,
       ]);
       return;
     }
 
-    // 新しい run を先頭に追加（同一対象の古い run は置き換える）。
-    setRuns((prev) => [{ id, label, status: 'running', logs: [] }, ...prev.filter((r) => r.label !== label)]);
+    addRunningRun(id, label);
 
     const es = new EventSource(`${API}/api/stream?id=${id}`);
     es.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === 'log') {
-        patchRun(id, (r) => ({ ...r, logs: [...r.logs, { text: data.message, kind: classifyLine(data.message) }] }));
+        appendRunLog(id, data.message);
       } else if (data.type === 'done') {
-        patchRun(id, (r) => ({ ...r, status: data.status === 'done' ? 'done' : 'failed' }));
+        updateRunStatus(id, data.status === 'done' ? 'done' : 'failed');
         es.close();
         // 完了した run を履歴一覧へ反映する。
         fetch(`${API}/api/runs`).then((r) => r.json()).then((d) => setHistory(d.runs ?? [])).catch(() => {});
@@ -151,7 +200,7 @@ export default function Home() {
     };
     es.onerror = () => {
       es.close();
-      patchRun(id, (r) => (r.status === 'running' ? { ...r, status: 'failed' } : r));
+      markRunFailedIfRunning(id);
     };
   };
 
@@ -197,19 +246,19 @@ export default function Home() {
     return isNaN(d.getTime()) ? '' : d.toLocaleString();
   };
 
-  // 履歴 run のログを既存の stream 機構で読み込む。完了 run でも runner が蓄積ログを
-  // リプレイして done を送るため、startRun と同じ EventSource の流儀で表示できる。
+  // 履歴一覧の「ログを見る」から、選択した run のログを画面に展開する。
+  // すでに展開済みなら何もせず、未展開なら表示枠を追加して SSE でログを読み込む。
   const viewHistoryLogs = (r: RunSummary) => {
     if (runs.some((x) => x.id === r.id)) return; // 既に表示中なら二重購読しない。
     const label = historyLabel(r);
-    setRuns((prev) => [{ id: r.id, label, status: r.status, logs: [] }, ...prev]);
+    setRuns((currentRuns) => [{ id: r.id, label, status: r.status, logs: [] }, ...currentRuns]);
     const es = new EventSource(`${API}/api/stream?id=${r.id}`);
     es.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === 'log') {
-        patchRun(r.id, (rs) => ({ ...rs, logs: [...rs.logs, { text: data.message, kind: classifyLine(data.message) }] }));
+        appendRunLog(r.id, data.message);
       } else if (data.type === 'done') {
-        patchRun(r.id, (rs) => ({ ...rs, status: data.status === 'done' ? 'done' : 'failed' }));
+        updateRunStatus(r.id, data.status === 'done' ? 'done' : 'failed');
         es.close();
       }
     };
