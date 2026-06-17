@@ -5,9 +5,48 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"time"
 
 	"e2e-runner/domain"
 )
+
+// Runs は実行履歴の一覧を JSON で返す(GET /api/runs)。新しい順。
+// ログ全文は重いので一覧には含めない ── 個別ログは /api/stream?id= が完了 run でも
+// 蓄積ログをリプレイして返すため、フロントはそちらで取得する。
+func (h *Handler) Runs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	runs, err := h.RunStore.List(r.Context())
+	if err != nil {
+		http.Error(w, "list failed", http.StatusInternalServerError)
+		return
+	}
+	type summary struct {
+		ID         string           `json:"id"`
+		Tag        string           `json:"tag,omitempty"`
+		File       string           `json:"file,omitempty"`
+		Files      []string         `json:"files,omitempty"`
+		Status     domain.RunStatus `json:"status"`
+		StartedAt  time.Time        `json:"started_at"`
+		FinishedAt time.Time        `json:"finished_at,omitzero"`
+	}
+	out := make([]summary, 0, len(runs))
+	for _, run := range runs {
+		out = append(out, summary{
+			ID:         run.ID,
+			Tag:        run.Tag,
+			File:       run.File,
+			Files:      run.Files,
+			Status:     run.GetStatus(),
+			StartedAt:  run.StartedAt,
+			FinishedAt: run.FinishedAt,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"runs": out})
+}
 
 func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

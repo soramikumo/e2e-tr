@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -16,10 +17,18 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// SQLiteに切り替えるには以下をコメントアウトして下の行を使う:
-	// runStore, err := store.NewSQLiteRunStore(cfg.DBPath)
-	// if err != nil { log.Fatalf("DB初期化失敗: %v", err) }
-	runStore := store.NewMemoryRunStore()
+	// run 履歴は SQLite に永続化する(再起動でも残る)。DB の置き場所は、
+	// DB_PATH が明示指定されていればそれを尊重し、未指定(既定)なら TestsDir 配下の
+	// .runs.db を使う ── .tags.json / .environments.json と同じ流儀で、docker の
+	// マウントボリュームに乗せて再起動・コンテナ作り直しでも履歴を残すため。
+	dbPath := cfg.DBPath
+	if os.Getenv("DB_PATH") == "" {
+		dbPath = filepath.Join(cfg.TestsDir, ".runs.db")
+	}
+	runStore, err := store.NewSQLiteRunStore(dbPath)
+	if err != nil {
+		log.Fatalf("DB初期化失敗: %v", err)
+	}
 
 	vm := vnc.NewManager(vnc.Options{
 		SecurityTypes:    cfg.VNCSecurityTypes,

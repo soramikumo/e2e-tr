@@ -17,16 +17,17 @@ const (
 )
 
 type Run struct {
-	ID        string    `json:"id"`
-	Tag       string    `json:"tag,omitempty"`
-	File      string    `json:"file,omitempty"`
-	Files     []string  `json:"files,omitempty"`    // タグ実行で解決した複数シナリオ
-	Trace     bool      `json:"trace,omitempty"`    // true なら成功時も trace を保存(--trace on)
-	BaseURL   string    `json:"base_url,omitempty"`     // 非空なら PLAYWRIGHT_BASE_URL として実行時に注入(dev/prod 切替)
-	AuthUser  string    `json:"-"`                      // Basic Auth ユーザー名(Environment 経由のみ設定、JSON 露出しない)
-	AuthPass  string    `json:"-"`                      // Basic Auth パスワード(同上)
-	Status    RunStatus `json:"status"`
-	StartedAt time.Time `json:"started_at"`
+	ID         string    `json:"id"`
+	Tag        string    `json:"tag,omitempty"`
+	File       string    `json:"file,omitempty"`
+	Files      []string  `json:"files,omitempty"`    // タグ実行で解決した複数シナリオ
+	Trace      bool      `json:"trace,omitempty"`    // true なら成功時も trace を保存(--trace on)
+	BaseURL    string    `json:"base_url,omitempty"` // 非空なら PLAYWRIGHT_BASE_URL として実行時に注入(dev/prod 切替)
+	AuthUser   string    `json:"-"`                  // Basic Auth ユーザー名(Environment 経由のみ設定、JSON 露出しない)
+	AuthPass   string    `json:"-"`                  // Basic Auth パスワード(同上)
+	Status     RunStatus `json:"status"`
+	StartedAt  time.Time `json:"started_at"`
+	FinishedAt time.Time `json:"finished_at,omitzero"` // 完了時刻。未完了(running)はゼロ値なので省かれる
 
 	mu   sync.RWMutex
 	logs []string
@@ -44,16 +45,21 @@ func NewRun(tag, file string) *Run {
 	}
 }
 
-// LoadRun reconstructs a Run from persisted data without triggering pub/sub.
-func LoadRun(id, tag, file string, status RunStatus, startedAt time.Time, logs []string) *Run {
+// 永続化からの復元は files/baseURL/trace/finishedAt 含めて元の Run を再構成する。履歴一覧(List)やレポート参照で「どのファイルを・どこに対して走らせ・いつ終わったか」を表示するため、全フィールドを引き回す。
+// AuthUser/AuthPass は JSON 露出させない秘匿情報なので永続化・復元しない。
+func LoadRun(id, tag, file string, files []string, baseURL string, trace bool, status RunStatus, startedAt, finishedAt time.Time, logs []string) *Run {
 	return &Run{
-		ID:        id,
-		Tag:       tag,
-		File:      file,
-		Status:    status,
-		StartedAt: startedAt,
-		logs:      logs,
-		done:      status != StatusRunning,
+		ID:         id,
+		Tag:        tag,
+		File:       file,
+		Files:      files,
+		BaseURL:    baseURL,
+		Trace:      trace,
+		Status:     status,
+		StartedAt:  startedAt,
+		FinishedAt: finishedAt,
+		logs:       logs,
+		done:       status != StatusRunning,
 	}
 }
 
@@ -104,6 +110,7 @@ func (r *Run) Finish(success bool) {
 	} else {
 		r.Status = StatusFailed
 	}
+	r.FinishedAt = time.Now()
 	r.done = true
 	for _, ch := range r.subs {
 		close(ch)

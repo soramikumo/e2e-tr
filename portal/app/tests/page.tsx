@@ -22,6 +22,17 @@ interface EnvView {
   hasAuthPass: boolean;
 }
 
+// 実行履歴(GET /api/runs)のサマリ。ログ全文は含まず、表示時に stream で取得する。
+interface RunSummary {
+  id: string;
+  tag?: string;
+  file?: string;
+  files?: string[];
+  status: RunStatus;
+  started_at: string;
+  finished_at?: string;
+}
+
 interface LogLine {
   text: string;
   kind: 'default' | 'info' | 'error';
@@ -61,6 +72,8 @@ export default function Home() {
   // ID で持つことで、env リスト側で baseURL や認証が更新されても次の実行で追従する。
   const [environments, setEnvironments] = useState<EnvView[]>([]);
   const [environmentId, setEnvironmentId] = useState<string>('');
+  // 実行履歴(SQLite に永続化され再起動でも残る)。マウント時と run 完了時に取得する。
+  const [history, setHistory] = useState<RunSummary[]>([]);
   // インライン名前編集の対象シナリオ名(null なら非編集)と入力中ドラフト。
   const [editingName, setEditingName] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -84,6 +97,10 @@ export default function Home() {
     fetch(`${API}/api/environments`)
       .then((r) => r.json())
       .then((d) => setEnvironments(d.environments ?? []))
+      .catch(() => {});
+    fetch(`${API}/api/runs`)
+      .then((r) => r.json())
+      .then((d) => setHistory(d.runs ?? []))
       .catch(() => {});
   }, []);
 
@@ -128,6 +145,8 @@ export default function Home() {
       } else if (data.type === 'done') {
         patchRun(id, (r) => ({ ...r, status: data.status === 'done' ? 'done' : 'failed' }));
         es.close();
+        // 完了した run を履歴一覧へ反映する。
+        fetch(`${API}/api/runs`).then((r) => r.json()).then((d) => setHistory(d.runs ?? [])).catch(() => {});
       }
     };
     es.onerror = () => {
@@ -167,6 +186,35 @@ export default function Home() {
   const runningLabels = new Set(runs.filter((r) => r.status === 'running').map((r) => r.label));
   // ラベルごとの最新 run（runs は先頭が新しい）。
   const latestRun = (label: string) => runs.find((r) => r.label === label);
+
+  // 履歴 run の表示ラベル（タグ実行は @tag、単体は file、タグ複数は連結）。
+  const historyLabel = (r: RunSummary): string =>
+    r.tag ? `@${r.tag}` : r.file || (r.files && r.files.join(', ')) || r.id;
+
+  const fmtTime = (s?: string) => {
+    if (!s) return '';
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? '' : d.toLocaleString();
+  };
+
+  // 履歴 run のログを既存の stream 機構で読み込む。完了 run でも runner が蓄積ログを
+  // リプレイして done を送るため、startRun と同じ EventSource の流儀で表示できる。
+  const viewHistoryLogs = (r: RunSummary) => {
+    if (runs.some((x) => x.id === r.id)) return; // 既に表示中なら二重購読しない。
+    const label = historyLabel(r);
+    setRuns((prev) => [{ id: r.id, label, status: r.status, logs: [] }, ...prev]);
+    const es = new EventSource(`${API}/api/stream?id=${r.id}`);
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'log') {
+        patchRun(r.id, (rs) => ({ ...rs, logs: [...rs.logs, { text: data.message, kind: classifyLine(data.message) }] }));
+      } else if (data.type === 'done') {
+        patchRun(r.id, (rs) => ({ ...rs, status: data.status === 'done' ? 'done' : 'failed' }));
+        es.close();
+      }
+    };
+    es.onerror = () => es.close();
+  };
 
   const renderRunCard = (run: RunState) => (
     <div className="run-card">
@@ -346,6 +394,43 @@ export default function Home() {
                     </div>
                   </div>
                   {run && renderRunCard(run)}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2>実行履歴</h2>
+        {history.length === 0 ? (
+          <p className="empty">まだ実行履歴がありません。テストを実行すると履歴に残ります。</p>
+        ) : (
+          <div className="run-list">
+            {history.map((r) => {
+              const live = runs.find((x) => x.id === r.id);
+              return (
+                <div key={r.id} className="history-item">
+                  <div className="scenario-row">
+                    <div className="scenario-meta">
+                      <span className="tag-label">{historyLabel(r)}</span>
+                      <span className={`badge ${r.status}`}>{badgeLabel[r.status]}</span>
+                      <span className="history-time">{fmtTime(r.started_at)}</span>
+                    </div>
+                    <div className="scenario-actions">
+                      {!live && (
+                        <button className="tag-edit-btn" onClick={() => viewHistoryLogs(r)}>
+                          ログを見る
+                        </button>
+                      )}
+                      {r.status !== 'running' && (
+                        <a className="report-link" href={`${API}/report/${r.id}/`} target="_blank" rel="noopener noreferrer">
+                          レポート →
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  {live && renderRunCard(live)}
                 </div>
               );
             })}

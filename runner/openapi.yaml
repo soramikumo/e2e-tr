@@ -66,6 +66,51 @@ paths:
         '429':
           description: Too many concurrent runs. Retry after a previous run finishes.
 
+  /api/runs:
+    get:
+      summary: List run history
+      description: Returns past runs (persisted in SQLite), newest first. Log bodies are omitted; fetch logs for a run via `/api/stream?id=`.
+      operationId: listRuns
+      responses:
+        '200':
+          description: Run history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runs]
+                properties:
+                  runs:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, status, started_at]
+                      properties:
+                        id:
+                          type: string
+                          example: a1b2c3d4e5f6
+                        tag:
+                          type: string
+                          description: Set when the run was started by tag.
+                        file:
+                          type: string
+                          description: Set when the run was started by a single scenario file.
+                        files:
+                          type: array
+                          items:
+                            type: string
+                          description: Scenario files resolved for a tag run.
+                        status:
+                          type: string
+                          enum: [running, done, failed]
+                        started_at:
+                          type: string
+                          format: date-time
+                        finished_at:
+                          type: string
+                          format: date-time
+                          description: Omitted while the run is still running.
+
   /api/stream:
     get:
       summary: Stream run logs (SSE)

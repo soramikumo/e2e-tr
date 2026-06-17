@@ -15,6 +15,8 @@ type RunStore interface {
 	Save(ctx context.Context, run *domain.Run) error
 	Get(ctx context.Context, id string) (*domain.Run, bool)
 	Delete(ctx context.Context, id string) error
+	// List は実行履歴を新しい順(started_at 降順)で返す。履歴一覧 UI 用。
+	List(ctx context.Context) ([]*domain.Run, error)
 }
 
 // CodegenStore はシナリオ記録セッションの保存・取得を抽象化する。
