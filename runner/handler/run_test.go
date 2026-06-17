@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"e2e-runner/config"
+	"e2e-runner/domain"
 	"e2e-runner/executor"
 	"e2e-runner/handler"
 	"e2e-runner/store"
@@ -182,5 +183,34 @@ func TestHandleRun_ValidBaseURL_Accepted(t *testing.T) {
 	}
 	if run.BaseURL != "https://staging.example.com" {
 		t.Errorf("BaseURL = %q, want staging", run.BaseURL)
+	}
+}
+
+// 実行中の Run は完了時刻を持たないため、履歴一覧でも finished_at を返さない。
+func TestRuns_RunningRunOmitsFinishedAt(t *testing.T) {
+	h := newHandlerWithFakeRunner(t)
+	run := domain.NewRun("smoke", "")
+	if err := h.RunStore.Save(context.Background(), run); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/runs", nil)
+	w := httptest.NewRecorder()
+	h.Runs(w, req)
+
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Result().StatusCode)
+	}
+	var body struct {
+		Runs []map[string]any `json:"runs"`
+	}
+	if err := json.NewDecoder(w.Result().Body).Decode(&body); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if len(body.Runs) != 1 {
+		t.Fatalf("runs length = %d, want 1", len(body.Runs))
+	}
+	if _, ok := body.Runs[0]["finished_at"]; ok {
+		t.Errorf("finished_at is present for running run: %v", body.Runs[0]["finished_at"])
 	}
 }

@@ -21,14 +21,13 @@ type SQLiteRunStore struct {
 	active map[string]*domain.Run
 }
 
+// 指定されたパスにSQLite DBファイルを作成し、テーブルを初期化してストアを返す。
 func NewSQLiteRunStore(dbPath string) (*SQLiteRunStore, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite open: %w", err)
 	}
-	// WAL + busy_timeout: レポート閲覧(読み)と run 完了(書き)の同時アクセスを
-	// 滑らかにする。ローカル単一プロセス前提でも、SSE 配信中の読みと完了書き込みが
-	// 重なるためロック競合を緩和しておく。
+	// WAL + busy_timeout: レポート閲覧(読み)と run 完了(書き)の同時アクセスを滑らかにする。ローカル単一プロセス前提でも、SSE 配信中の読みと完了書き込みが重なるためロック競合を緩和しておく。
 	for _, pragma := range []string{
 		`PRAGMA journal_mode=WAL`,
 		`PRAGMA busy_timeout=5000`,
@@ -52,13 +51,61 @@ func NewSQLiteRunStore(dbPath string) (*SQLiteRunStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create table: %w", err)
 	}
-	// 起動時の孤児クリーンアップ: プロセスが落ちて中断された run が status='running'
-	// のまま残っていれば failed に倒す。再起動後はメモリの subscriber も無く再開
-	// 不能なため、履歴の整合を保つための防御(通常は完了 run のみ永続化される)。
+	if err := migrateRunsTable(db); err != nil {
+		return nil, err
+	}
+	// 起動時の孤児クリーンアップ: プロセスが落ちて中断された run が status='running'のまま残っていれば failed に倒す。再起動後はメモリの subscriber も無く再開不能なため、履歴の整合を保つための防御(通常は完了 run のみ永続化される)。
 	if _, err := db.Exec(`UPDATE runs SET status = 'failed' WHERE status = 'running'`); err != nil {
 		return nil, fmt.Errorf("orphan cleanup: %w", err)
 	}
 	return &SQLiteRunStore{db: db, active: map[string]*domain.Run{}}, nil
+}
+
+// migrateRunsTable は runs テーブルのスキーマを確認し、必要に応じてマイグレーションする。現状は files, base_url, trace, finished_at の4列追加のみ。将来的にスキーマ変更が増える場合は、マイグレーション管理をもう少しちゃんとした方が良いかもしれない。
+func migrateRunsTable(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(runs)`)
+	if err != nil {
+		return fmt.Errorf("inspect runs schema: %w", err)
+	}
+	defer rows.Close()
+
+	columns := map[string]bool{}
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			columnType string
+			notNull    int
+			defaultVal any
+			pk         int
+		)
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultVal, &pk); err != nil {
+			return fmt.Errorf("scan runs schema: %w", err)
+		}
+		columns[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("inspect runs schema: %w", err)
+	}
+
+	migrations := []struct {
+		column string
+		sql    string
+	}{
+		{"files", `ALTER TABLE runs ADD COLUMN files TEXT NOT NULL DEFAULT '[]'`},
+		{"base_url", `ALTER TABLE runs ADD COLUMN base_url TEXT NOT NULL DEFAULT ''`},
+		{"trace", `ALTER TABLE runs ADD COLUMN trace INTEGER NOT NULL DEFAULT 0`},
+		{"finished_at", `ALTER TABLE runs ADD COLUMN finished_at DATETIME`},
+	}
+	for _, migration := range migrations {
+		if columns[migration.column] {
+			continue
+		}
+		if _, err := db.Exec(migration.sql); err != nil {
+			return fmt.Errorf("add runs.%s column: %w", migration.column, err)
+		}
+	}
+	return nil
 }
 
 // Save はRunをメモリに登録し、完了済みの場合はSQLiteにも保存する。
@@ -84,7 +131,14 @@ func (s *SQLiteRunStore) Save(ctx context.Context, run *domain.Run) error {
 		run.ID, run.Tag, run.File, string(filesJSON), run.BaseURL, trace,
 		string(run.GetStatus()), string(logsJSON), run.StartedAt, run.FinishedAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	delete(s.active, run.ID)
+	s.mu.Unlock()
+	return nil
 }
 
 func (s *SQLiteRunStore) Delete(ctx context.Context, id string) error {
@@ -118,14 +172,14 @@ func (s *SQLiteRunStore) List(ctx context.Context) ([]*domain.Run, error) {
 	s.mu.RUnlock()
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, tag, file, files, base_url, trace, status, logs, started_at, finished_at
+		`SELECT id, tag, file, files, base_url, trace, status, started_at, finished_at
 		 FROM runs ORDER BY started_at DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		r, err := scanRun(rows)
+		r, err := scanRunSummary(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -145,6 +199,9 @@ func (s *SQLiteRunStore) List(ctx context.Context) ([]*domain.Run, error) {
 	return out, nil
 }
 
+// getFromDB は Get で active map に見つからなかった Run を SQLite から復元する。
+// 履歴一覧の完了済み Run は Save 成功後に active から削除されるため、
+// 履歴から個別ログを開くときはここを通って logs 付きで読み直す。
 func (s *SQLiteRunStore) getFromDB(ctx context.Context, id string) (*domain.Run, bool) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, tag, file, files, base_url, trace, status, logs, started_at, finished_at
@@ -154,6 +211,43 @@ func (s *SQLiteRunStore) getFromDB(ctx context.Context, id string) (*domain.Run,
 		return nil, false
 	}
 	return r, true
+}
+
+// scanRunSummary は一覧表示に必要な列だけを domain.Run へ復元する。
+// logs は /api/runs では返さないため、履歴一覧では重いログ本文を読まない。
+func scanRunSummary(sc scanner) (*domain.Run, error) {
+	var (
+		id, tag, file, status string
+		filesJSON, baseURL    string
+		trace                 int
+		startedAt             time.Time
+		finishedAt            sql.NullTime
+	)
+	if err := sc.Scan(&id, &tag, &file, &filesJSON, &baseURL, &trace,
+		&status, &startedAt, &finishedAt); err != nil {
+		return nil, err
+	}
+	var files []string
+	if filesJSON != "" {
+		json.Unmarshal([]byte(filesJSON), &files)
+	}
+	var finished time.Time
+	if finishedAt.Valid {
+		finished = finishedAt.Time
+	}
+	run := domain.LoadRun(
+		id,
+		tag,
+		file,
+		files,
+		baseURL,
+		trace != 0,
+		domain.RunStatus(status),
+		startedAt,
+		finished,
+		nil,
+	)
+	return run, nil
 }
 
 // scanner は *sql.Row と *sql.Rows の共通 Scan を抽象化する(getFromDB と List で共用)。
@@ -175,16 +269,29 @@ func scanRun(sc scanner) (*domain.Run, error) {
 		&status, &logsJSON, &startedAt, &finishedAt); err != nil {
 		return nil, err
 	}
+	// files と logs は JSON 文字列で保存しているため、復元の際にアンマーシャルする。
 	var files []string
 	if filesJSON != "" {
 		json.Unmarshal([]byte(filesJSON), &files)
 	}
+	// trace は SQLite に bool 型がないため int で保存しているため、復元の際に bool に変換する。
 	var logs []string
 	json.Unmarshal([]byte(logsJSON), &logs)
 	var finished time.Time
 	if finishedAt.Valid {
 		finished = finishedAt.Time
 	}
-	return domain.LoadRun(id, tag, file, files, baseURL, trace != 0,
-		domain.RunStatus(status), startedAt, finished, logs), nil
+	run := domain.LoadRun(
+		id,
+		tag,
+		file,
+		files,
+		baseURL,
+		trace != 0,
+		domain.RunStatus(status),
+		startedAt,
+		finished,
+		logs,
+	)
+	return run, nil
 }

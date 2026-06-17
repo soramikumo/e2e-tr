@@ -30,7 +30,7 @@ func (h *Handler) Runs(w http.ResponseWriter, r *http.Request) {
 		Files      []string         `json:"files,omitempty"`
 		Status     domain.RunStatus `json:"status"`
 		StartedAt  time.Time        `json:"started_at"`
-		FinishedAt time.Time        `json:"finished_at,omitempty"`
+		FinishedAt time.Time        `json:"finished_at,omitzero"`
 	}
 	out := make([]summary, 0, len(runs))
 	for _, run := range runs {
