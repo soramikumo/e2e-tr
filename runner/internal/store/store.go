@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 )
 
 // RunStore はテスト実行の保存・取得を抽象化するインターフェース。

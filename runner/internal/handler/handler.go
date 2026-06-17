@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"e2e-runner/config"
-	"e2e-runner/executor"
-	"e2e-runner/store"
-	"e2e-runner/vnc"
+	"e2e-runner/internal/config"
+	"e2e-runner/internal/executor"
+	"e2e-runner/internal/store"
+	"e2e-runner/internal/vnc"
 )
 
 type Handler struct {

@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"e2e-runner/domain"
-	"e2e-runner/executor"
-	"e2e-runner/vnc"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/executor"
+	"e2e-runner/internal/vnc"
 )
 
 // vncSessions は *vnc.Manager を VNCSessions インターフェースへ安全に変換する。

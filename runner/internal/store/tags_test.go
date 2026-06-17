@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"e2e-runner/store"
+	"e2e-runner/internal/store"
 )
 
 func TestTagStore_UpsertAndList(t *testing.T) {

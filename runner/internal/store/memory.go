@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 )
 
 type MemoryRunStore struct {

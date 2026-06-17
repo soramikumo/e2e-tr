@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 )
 
 // FileEnvironmentStore は .environments.json を単一の真実の源とし、

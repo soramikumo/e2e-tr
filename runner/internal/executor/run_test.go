@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"e2e-runner/domain"
-	"e2e-runner/executor"
-	"e2e-runner/store"
+	"e2e-runner/internal/domain"
+	"e2e-runner/internal/executor"
+	"e2e-runner/internal/store"
 )
 
 // blockingRunner は ctx がキャンセルされるまでブロックする。タイムアウトテスト用。

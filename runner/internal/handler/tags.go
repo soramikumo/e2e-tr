@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 )
 
 var hexColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)

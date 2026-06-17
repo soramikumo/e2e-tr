@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"e2e-runner/domain"
+	"e2e-runner/internal/domain"
 )
 
 // Runs は実行履歴の一覧を JSON で返す(GET /api/runs)。新しい順。
