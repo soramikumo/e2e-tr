@@ -45,6 +45,45 @@ ps:
 
 # ── Tests ───────────────────────────────────────────────
 
+# CI 相当: Runner build/vet/test → Portal build → compose 起動 → Portal E2E。
+ci: ci-runner ci-portal ci-e2e
+
+# CI 相当の Go チェック。
+ci-runner:
+    cd runner && go build ./...
+    cd runner && go vet ./...
+    cd runner && go test ./...
+
+# CI 相当の Portal ビルドチェック。
+ci-portal:
+    cd portal && npm ci
+    cd portal && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run build
+
+# CI 相当の Portal E2E（compose は成功/失敗に関わらず停止）。
+ci-e2e:
+    cd tests && npm ci
+    cd tests && npx playwright install --with-deps chromium
+    @set -e; \
+        docker compose up -d --build; \
+        trap 'docker compose down' EXIT; \
+        echo "Waiting for services..."; \
+        ready=0; \
+        for i in $(seq 1 30); do \
+            if curl -sf http://localhost:3000 > /dev/null 2>&1 && \
+               curl -sf http://localhost:8080/api/tags > /dev/null 2>&1; then \
+                echo "Services ready"; \
+                ready=1; \
+                break; \
+            fi; \
+            echo "Waiting... ($i/30)"; \
+            sleep 2; \
+        done; \
+        if [ "$ready" -ne 1 ]; then \
+            echo "Services did not start in time"; \
+            exit 1; \
+        fi; \
+        cd tests && npx playwright test --config=playwright.portal.config.ts
+
 # Go ユニットテスト。
 test-runner:
     cd runner && go test ./... -v
