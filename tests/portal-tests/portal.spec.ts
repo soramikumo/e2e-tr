@@ -6,25 +6,29 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('ページタイトルが表示される @smoke', async ({ page }) => {
-  await expect(page).toHaveTitle('E2E Test Portal');
+  await expect(page).toHaveTitle('e2e-tr');
 });
 
-test('ナビバーにブランドとリンクが表示される @smoke', async ({ page }) => {
-  await expect(page.getByText('E2E Portal')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'テスト実行' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'シナリオ作成' })).toBeVisible();
+test('サイドバーにブランドとリンクが表示される @smoke', async ({ page }) => {
+  await expect(page.getByRole('link', { name: /e2e-tr/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Dashboard/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Test cases/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Record/ })).toBeVisible();
 });
 
 // ── テスト実行ページ ───────────────────────────────────────────────
 test('テスト実行ページ: 見出しが表示される @smoke', async ({ page }) => {
-  await expect(page.getByRole('heading', { name: 'テスト実行' })).toBeVisible();
+  await page.goto('/tests');
+  await expect(page.getByRole('heading', { name: 'Test cases' })).toBeVisible();
 });
 
 test('テスト実行ページ: シナリオセクションが表示される @ui', async ({ page }) => {
+  await page.goto('/tests');
   await expect(page.getByRole('heading', { name: 'シナリオで実行' })).toBeVisible();
 });
 
 test('テスト実行ページ: シナリオがない場合に案内テキストが表示される @ui', async ({ page }) => {
+  await page.goto('/tests');
   // runner が空の場合、空メッセージが表示される（APIが返すシナリオ次第）
   // タグセクションはシナリオ存在時のみ表示のため条件チェック
   const heading = page.getByRole('heading', { name: 'タグで実行' });
@@ -38,9 +42,9 @@ test('テスト実行ページ: シナリオがない場合に案内テキスト
 
 // ── シナリオ作成ページ ─────────────────────────────────────────────
 test('シナリオ作成ページ: ナビリンクで遷移できる @smoke', async ({ page }) => {
-  await page.getByRole('link', { name: 'シナリオ作成' }).click();
+  await page.getByRole('link', { name: /Record/ }).click();
   await expect(page).toHaveURL(/\/create/);
-  await expect(page.getByRole('heading', { name: 'シナリオ作成' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Record' })).toBeVisible();
 });
 
 test('シナリオ作成ページ: URLフォームと記録ボタンが表示される @ui', async ({ page }) => {
@@ -70,16 +74,16 @@ test('シナリオ作成ページ: 使い方セクションが表示される @u
 
 // ── ナビゲーション往復 ─────────────────────────────────────────────
 test('テスト実行 ↔ シナリオ作成 を往復できる @smoke', async ({ page }) => {
-  await page.getByRole('link', { name: 'シナリオ作成' }).click();
+  await page.getByRole('link', { name: /Record/ }).click();
   await expect(page).toHaveURL(/\/create/);
 
-  await page.getByRole('link', { name: 'テスト実行' }).click();
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'テスト実行' })).toBeVisible();
+  await page.getByRole('link', { name: /Test cases/ }).click();
+  await expect(page).toHaveURL(/\/tests$/);
+  await expect(page.getByRole('heading', { name: 'Test cases' })).toBeVisible();
 });
 
 // ── APIモックを使うテスト ──────────────────────────────────────────
-// beforeEach で / に遷移済みのため、ルート設定後に再度 goto('/') する
+// beforeEach で / に遷移済みのため、ルート設定後に実行ページへ再度 goto('/tests') する
 
 // シナリオとタグが存在するとき「タグで実行」セクションが表示される @ui
 test('test execution page shows tag list when scenarios exist @ui', async ({ page }) => {
@@ -90,7 +94,7 @@ test('test execution page shows tag list when scenarios exist @ui', async ({ pag
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ scenarios: [{ name: 'smoke.spec.ts', modified: new Date().toISOString(), size: 100, tags: [] }] }) })
   );
 
-  await page.goto('/');
+  await page.goto('/tests');
 
   await expect(page.getByRole('heading', { name: 'タグで実行' })).toBeVisible();
   await expect(page.getByRole('button', { name: '@smoke' })).toBeVisible();
@@ -116,7 +120,7 @@ test('clicking run button starts test and shows log stream @smoke', async ({ pag
     })
   );
 
-  await page.goto('/');
+  await page.goto('/tests');
   await page.getByRole('button', { name: '実行' }).click();
 
   await expect(page.getByText('[info] テスト開始: smoke.spec.ts')).toBeVisible({ timeout: 5000 });
@@ -141,7 +145,7 @@ test('completed test shows success status @ui', async ({ page }) => {
     })
   );
 
-  await page.goto('/');
+  await page.goto('/tests');
   await page.getByRole('button', { name: '実行' }).click();
 
   await expect(page.getByText('成功')).toBeVisible({ timeout: 5000 });
@@ -166,7 +170,7 @@ test('failed test shows failure status @ui', async ({ page }) => {
     })
   );
 
-  await page.goto('/');
+  await page.goto('/tests');
   await page.getByRole('button', { name: '実行' }).click();
 
   await expect(page.getByText('失敗')).toBeVisible({ timeout: 5000 });
@@ -195,7 +199,7 @@ test('trace toggle sends trace flag in run request @ui', async ({ page }) => {
     })
   );
 
-  await page.goto('/');
+  await page.goto('/tests');
   await page.getByRole('checkbox', { name: /トレースを保存/ }).check();
   await page.getByRole('button', { name: '@smoke' }).click();
 
@@ -224,7 +228,7 @@ test('run without trace toggle omits trace @ui', async ({ page }) => {
     })
   );
 
-  await page.goto('/');
+  await page.goto('/tests');
   await page.getByRole('button', { name: '@smoke' }).click();
 
   await expect(page.getByText('成功')).toBeVisible({ timeout: 5000 });
@@ -255,7 +259,7 @@ test('per-scenario trace checkbox sends trace for that scenario @ui', async ({ p
     })
   );
 
-  await page.goto('/');
+  await page.goto('/tests');
   const row = page.locator('.scenario-row', { hasText: 'a.spec.ts' });
   await row.getByRole('checkbox').check();
   await row.getByRole('button', { name: '実行' }).click();
@@ -290,7 +294,7 @@ test('tag modal creates a tag and assigns it to the scenario @ui', async ({ page
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: assigned!.tags }) });
   });
 
-  await page.goto('/');
+  await page.goto('/tests');
   await page.locator('.scenario-row', { hasText: 'login.spec.ts' }).getByRole('button', { name: /タグ/ }).click();
 
   await expect(page.getByText('新規作成')).toBeVisible();
@@ -326,7 +330,7 @@ test('reopening tag modal preserves prior assignment @ui', async ({ page }) => {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tags: lastPut }) });
   });
 
-  await page.goto('/');
+  await page.goto('/tests');
   await page.locator('.scenario-row', { hasText: 'login.spec.ts' }).getByRole('button', { name: /タグ/ }).click();
 
   // 既存割当 smoke がチェック済みで開く。
@@ -366,7 +370,7 @@ test('multiple scenarios run in parallel @smoke', async ({ page }) => {
     /* keep SSE pending */
   });
 
-  await page.goto('/');
+  await page.goto('/tests');
   await page.locator('.scenario-row', { hasText: 'a.spec.ts' }).getByRole('button', { name: '実行' }).click();
   await page.locator('.scenario-row', { hasText: 'b.spec.ts' }).getByRole('button', { name: '実行' }).click();
 
@@ -376,8 +380,6 @@ test('multiple scenarios run in parallel @smoke', async ({ page }) => {
 // ── シナリオ作成ページ（追加） ─────────────────────────────────────
 
 // http/https 以外の URL を入力しても記録ボタンが有効にならない @ui
-// NOTE: フロントエンドは url が空かどうかのみチェックしているため、このテストは
-// 現状失敗する。フロントでのプロトコルバリデーション追加が必要。
 test('record button is disabled when invalid URL is entered @ui', async ({ page }) => {
   await page.goto('/create');
 

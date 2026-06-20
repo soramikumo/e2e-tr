@@ -162,6 +162,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev
 ### テストの実行
 
 ```bash
+just ci                   # CI 相当をローカル実行（runner build/vet/test + portal build + compose E2E）
 make test-runner          # Go ユニットテストのみ
 make test-portal          # ポータル E2E テスト（要: make up）
 make test-e2e             # ユーザーシナリオテストのみ（要: make up）

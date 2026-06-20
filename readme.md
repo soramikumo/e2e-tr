@@ -174,6 +174,7 @@ Test strategy and pyramid for this repository → [Testing strategy](docs/testin
 ### Run tests
 
 ```bash
+just ci                   # CI-equivalent local run (runner build/vet/test + portal build + compose E2E)
 make test-runner          # Go unit tests only
 make test-portal          # Portal E2E tests (requires: make up)
 make test-e2e             # User scenario tests (requires: make up)
