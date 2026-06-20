@@ -190,8 +190,8 @@ export default function CreatePage() {
             {isRecording && noVNCPort && (
               <iframe
                 className="codegen-viewer"
-                src={`${NOVNC_HOST}:${noVNCPort}/vnc.html?autoconnect=true&resize=scale`}
-                allow="fullscreen"
+                src={`${NOVNC_HOST}:${noVNCPort}/vnc.html?autoconnect=true&resize=scale&clipboard_seamless=1&clipboard_up=1&clipboard_down=1`}
+                allow="clipboard-read; clipboard-write; fullscreen"
               />
             )}
 
