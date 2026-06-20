@@ -63,9 +63,9 @@ ci-portal:
 ci-e2e:
     cd tests && npm ci
     cd tests && npx playwright install --with-deps chromium
-    @set -e; \
-        docker compose up -d --build; \
+    `@set` -e; \
         trap 'docker compose down' EXIT; \
+        docker compose up -d --build; \
         echo "Waiting for services..."; \
         ready=0; \
         for i in $(seq 1 30); do \
