@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TagModal, TagChip, TagDef, contrastText } from '../TagModal';
 import { CodeEditorModal } from '../CodeEditorModal';
+import { RunStatus, RunSummary, badgeLabel, historyLabel, fmtTime } from '../runs';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
-
-type RunStatus = 'running' | 'done' | 'failed';
 
 interface Scenario {
   name: string;
@@ -20,17 +19,6 @@ interface EnvView {
   name: string;
   baseURL: string;
   hasAuthPass: boolean;
-}
-
-// 実行履歴(GET /api/runs)のサマリ。ログ全文は含まず、表示時に stream で取得する。
-interface RunSummary {
-  id: string;
-  tag?: string;
-  file?: string;
-  files?: string[];
-  status: RunStatus;
-  started_at: string;
-  finished_at?: string;
 }
 
 interface LogLine {
@@ -51,12 +39,6 @@ function classifyLine(text: string): LogLine['kind'] {
   if (text.startsWith('[error]') || text.startsWith('[stderr]')) return 'error';
   return 'default';
 }
-
-const badgeLabel: Record<RunStatus, string> = {
-  running: '実行中...',
-  done: '成功',
-  failed: '失敗',
-};
 
 export default function Home() {
   const [tags, setTags] = useState<TagDef[]>([]);
@@ -186,16 +168,6 @@ export default function Home() {
   const runningLabels = new Set(runs.filter((r) => r.status === 'running').map((r) => r.label));
   // ラベルごとの最新 run（runs は先頭が新しい）。
   const latestRun = (label: string) => runs.find((r) => r.label === label);
-
-  // 履歴 run の表示ラベル（タグ実行は @tag、単体は file、タグ複数は連結）。
-  const historyLabel = (r: RunSummary): string =>
-    r.tag ? `@${r.tag}` : r.file || (r.files && r.files.join(', ')) || r.id;
-
-  const fmtTime = (s?: string) => {
-    if (!s) return '';
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? '' : d.toLocaleString();
-  };
 
   // 履歴 run のログを既存の stream 機構で読み込む。完了 run でも runner が蓄積ログを
   // リプレイして done を送るため、startRun と同じ EventSource の流儀で表示できる。

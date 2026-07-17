@@ -972,8 +972,6 @@ h2 {
   padding: 1rem 1.1rem;
 }
 
-.kpi-card.kpi-soon { opacity: 0.7; }
-
 .kpi-label {
   font-size: 0.72rem;
   font-weight: 600;
@@ -993,19 +991,6 @@ h2 {
 .kpi-hint {
   font-size: 0.72rem;
   color: #64748b;
-}
-
-.kpi-soon-pill {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  background: #334155;
-  color: #cbd5e1;
-  border-radius: 999px;
-  padding: 0.1rem 0.45rem;
 }
 
 .dash-grid {
@@ -1087,6 +1072,87 @@ h2 {
   0%   { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
+
+/* Dashboard: 直近の実行 / 成功率トレンド(/api/runs 由来) */
+.dash-card-link {
+  font-size: 0.78rem;
+  color: #93c5fd;
+  text-decoration: none;
+}
+.dash-card-link:hover { text-decoration: underline; }
+
+.dash-empty {
+  color: #64748b;
+  font-size: 0.82rem;
+  padding: 0.5rem 0;
+}
+
+.recent-list { display: flex; flex-direction: column; }
+
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid #28344680;
+  font-size: 0.82rem;
+}
+.recent-row:first-child { border-top: none; }
+
+.recent-label {
+  flex: 1;
+  min-width: 0;
+  color: #e2e8f0;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-time { color: #64748b; font-size: 0.72rem; white-space: nowrap; }
+
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  width: 100%;
+  height: 120px;
+}
+.trend-col {
+  position: relative;
+  flex: 1 1 0;
+  height: 100%;
+  background: #28344666;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.trend-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 3px;
+}
+.trend-fill.ok   { background: #4ade80; }
+.trend-fill.warn { background: #fbbf24; }
+.trend-fill.bad  { background: #f87171; }
+
+.trend-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+.trend-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.trend-legend .dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+  display: inline-block;
+}
+.trend-legend .dot.ok   { background: #4ade80; }
+.trend-legend .dot.warn { background: #fbbf24; }
+.trend-legend .dot.bad  { background: #f87171; }
 
 .soon-pill {
   font-size: 0.62rem;
