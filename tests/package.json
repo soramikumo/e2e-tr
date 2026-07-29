@@ -8,6 +8,6 @@
     "postinstall": "node scripts/patch-codegen-i18n.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0"
+    "@playwright/test": "^1.62.0"
   }
 }
