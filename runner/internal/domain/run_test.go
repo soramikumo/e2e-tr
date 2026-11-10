@@ -241,3 +241,88 @@ func TestSubscribe_Finish_ChannelClosed(t *testing.T) {
 		}
 	}
 }
+
+// TestSubscribe_MoreLogsThanBuffer は、購読チャネルのバッファを超えるログが
+// 既にある状態で Subscribe してもブロックしないことを確認する。
+// 以前は replay の送信がロック保持中にブロックし、Run の AddLog / Finish まで
+// 巻き添えで停止していた。
+func TestSubscribe_MoreLogsThanBuffer(t *testing.T) {
+	const total = subscriberBuffer + 88
+	r := NewRun("tag1", "file1")
+	for i := 0; i < total; i++ {
+		r.AddLog("line")
+	}
+
+	type result struct {
+		ch     <-chan string
+		cancel func()
+	}
+	subscribed := make(chan result, 1)
+	go func() {
+		ch, cancel := r.Subscribe()
+		subscribed <- result{ch: ch, cancel: cancel}
+	}()
+
+	var ch <-chan string
+	select {
+	case got := <-subscribed:
+		ch, _ = got.ch, got.cancel
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Subscribe blocked with %d buffered log lines (buffer %d)", total, subscriberBuffer)
+	}
+
+	// replay されたログが全件届くこと。
+	if got := drainChannel(ch); len(got) != total {
+		t.Fatalf("expected %d replayed lines, got %d", total, len(got))
+	}
+
+	// 購読後も AddLog がブロックしないこと(デッドロックの巻き添え確認)。
+	added := make(chan struct{})
+	go func() {
+		r.AddLog("after subscribe")
+		close(added)
+	}()
+	select {
+	case <-added:
+	case <-time.After(2 * time.Second):
+		t.Fatal("AddLog blocked after Subscribe")
+	}
+
+	// ライブ配信も従来どおり届くこと。
+	select {
+	case line := <-ch:
+		if line != "after subscribe" {
+			t.Fatalf("expected live line, got %q", line)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("live log line was not delivered")
+	}
+}
+
+// TestSubscribe_AfterFinish_MoreLogsThanBuffer は完了済み Run でも同様に
+// ブロックしないことを確認する(replay は done 判定より前に走る)。
+func TestSubscribe_AfterFinish_MoreLogsThanBuffer(t *testing.T) {
+	const total = subscriberBuffer + 88
+	r := NewRun("tag1", "file1")
+	for i := 0; i < total; i++ {
+		r.AddLog("line")
+	}
+	r.Finish(true)
+
+	done := make(chan struct{})
+	var got []string
+	go func() {
+		ch, _ := r.Subscribe()
+		got = drainChannel(ch)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Subscribe blocked on a finished run with %d logs", total)
+	}
+	if len(got) != total {
+		t.Fatalf("expected %d replayed lines, got %d", total, len(got))
+	}
+}

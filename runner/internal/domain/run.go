@@ -16,6 +16,10 @@ const (
 	StatusFailed  RunStatus = "failed"
 )
 
+// subscriberBuffer は購読チャネルのうちライブ配信向けに空けておく余裕。
+// replay 分は購読時のログ行数に応じて別途確保する。
+const subscriberBuffer = 512
+
 type Run struct {
 	ID         string    `json:"id"`
 	Tag        string    `json:"tag,omitempty"`
@@ -76,9 +80,13 @@ func (r *Run) AddLog(line string) {
 }
 
 func (r *Run) Subscribe() (<-chan string, func()) {
-	ch := make(chan string, 512)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 過去ログの replay は呼び出し側がチャネルを受け取る前に行うため、バッファが
+	// replay する行数に満たないとここで送信がブロックし、ロックを保持したまま
+	// AddLog / Finish / GetStatus まで巻き添えで止まる。バッファは replay 分に
+	// ライブ配信分を足したサイズにする。
+	ch := make(chan string, len(r.logs)+subscriberBuffer)
 	for _, line := range r.logs {
 		ch <- line
 	}
